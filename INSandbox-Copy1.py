@@ -17,8 +17,8 @@ import uproot
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
-#import tensorflow.compat.v1 as tf
-#tf.disable_v2_behavior()
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 import matplotlib.pyplot as plt
 
@@ -30,8 +30,8 @@ Nr = No*(No-1)
 Dp = 150
 Dr = 1
 De = 300
-lambda_dcorr = 0.3
-lambda_param = 0.0001
+lambda_dcorr = 0.05
+lambda_param = 0.0005
 
 normalize_factors = {}
 # orders: ['vtx_x', 'vtx_y', 'vtx_z', 'vtx_ntrack', 'vtx_dBV', 'vtx_err_dBV', 'vtx_px', 'vtx_py', 'vtx_pz', 'vtx_E']
@@ -41,7 +41,7 @@ normalize_factors = {}
 
 fndir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreeV36METm/'
 
-def GetDataAndLabel(fns, split, isSignal, lumi=4): # lumi: luminosity/10000
+def GetDataAndLabel(fns, split, isSignal, lumi=8): # lumi: luminosity/10000
     data_train = None
     data_val = None
     data_test = None
@@ -52,10 +52,11 @@ def GetDataAndLabel(fns, split, isSignal, lumi=4): # lumi: luminosity/10000
         print(fn)
         f = uproot.open(fndir+fn+'.root')
         f = f["mfvJetTreer/tree_DV"]
-        variables = ['max_SV_ntracks', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
+        variables = ['met_pt', 'max_SV_ntracks', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
         jetvar = ['jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
         matrix = f.arrays(variables, library='pd')
         matrix = matrix.dropna()
+        matrix = matrix[matrix['met_pt']>=150]
         # get events with SVs
         matrix = matrix[matrix['max_SV_ntracks']>2]
         #matrix = matrix[jetvar]
@@ -69,7 +70,9 @@ def GetDataAndLabel(fns, split, isSignal, lumi=4): # lumi: luminosity/10000
             print(" no events!")
             continue
         if fns[fn]>=0:
-            nevt = fns[fn]*4
+            nevt = fns[fn]*lumi
+            if nevt>idx[-1]:
+              nevt = idx[-1]
         else:
             nevt = idx[-1]
         train_idx = int(nevt*split[0])
@@ -278,6 +281,7 @@ def importData(split, normalize=True,shuffle=True):
     train_sig, val_sig, test_sig = GetDataAndLabel(fns_signal, split, True)
     train_bkg, val_bkg, test_bkg = GetDataAndLabel(fns_bkg, split, False)
     sig_bkg_weight = float(len(train_bkg[0]))/len(train_sig[0])
+    print("Training data: {0} signals {1} backgrounds".format(len(train_sig[0]), len(train_bkg[0])))
     data_train = [None]*3
     data_val = [None]*3
     data_test = [None]*3
@@ -413,12 +417,13 @@ def distance_corr(var_1, var_2, normedweight, power=1):
     AAavg = tf.reduce_mean(Amat*Amat*normedweight,axis=1)
     BBavg = tf.reduce_mean(Bmat*Bmat*normedweight,axis=1)
    
+    epsilon = 1e-08
     if power==1:
-        dCorr = tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight))
+        dCorr = tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight) + epsilon)
     elif power==2:
-        dCorr = (tf.reduce_mean(ABavg*normedweight))**2/(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight))
+        dCorr = (tf.reduce_mean(ABavg*normedweight))**2/(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight) + epsilon)
     else:
-        dCorr = (tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight)))**power
+        dCorr = (tf.reduce_mean(ABavg*normedweight)/tf.math.sqrt(tf.reduce_mean(AAavg*normedweight)*tf.reduce_mean(BBavg*normedweight) + epsilon))**power
   
     return dCorr
 
@@ -605,12 +610,12 @@ writer=tf.summary.FileWriter('./')
 
 sess=tf.InteractiveSession()
 tf.global_variables_initializer().run()
-batch_num = 2048
+batch_num = 512
 Rr_data, Rs_data, Ra_data = getRmatrix(batch_num)
 
 
 # training
-num_epochs=3
+num_epochs=300
 history = []
 history_val = []
 h_bce = []
@@ -626,8 +631,8 @@ for i in range(num_epochs):
         batch_data = train[0][j*batch_num:(j+1)*batch_num]
         batch_label = train[2][j*batch_num:(j+1)*batch_num]
         batch_ntk = train[1][j*batch_num:(j+1)*batch_num]
-        #batch_weight = (batch_label-1)*(-1)
-        batch_weight = np.ones(batch_label.shape)
+        batch_weight = (batch_label-1)*(-1)
+        #batch_weight = np.ones(batch_label.shape)
         l_train,_,bce_train,dcorr_train=sess.run([loss,trainer,loss_bce,dcorr],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight})
         loss_train+=l_train
         l_bce_train+=bce_train
@@ -650,8 +655,8 @@ for i in range(num_epochs):
         batch_data = val[0][j*batch_num:(j+1)*batch_num]
         batch_label = val[2][j*batch_num:(j+1)*batch_num]
         batch_ntk = val[1][j*batch_num:(j+1)*batch_num]
-        #batch_weight = (batch_label-1)*(-1)
-        batch_weight = np.ones(batch_label.shape)
+        batch_weight = (batch_label-1)*(-1)
+        #batch_weight = np.ones(batch_label.shape)
         l_val,_,bce_val,dcorr_val=sess.run([loss,out_sigmoid,loss_bce,dcorr],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight})
         #print("V12: {}".format(_))
         #print("P: {}".format(batch_label))
@@ -693,20 +698,18 @@ saver = tf.train.Saver(max_to_keep=20)
 saver.save(sess,"test_model")
 with tf.Session() as newsess:
     newsaver = tf.train.import_meta_graph("test_model.meta")
-    saver.restore(newsess, tf.train.latest_checkpoint('./'))
+    newsaver.restore(newsess, tf.train.latest_checkpoint('./'))
     constant_graph = tf.graph_util.convert_variables_to_constants(
         sess, sess.graph.as_graph_def(), outputs)
     tf.train.write_graph(constant_graph, "./", "constantgraph.pb", as_text=False)
-    #builder = tf.saved_model.builder.SavedModelBuilder("savedModel")
-    #builder.add_meta_graph_and_variables(newsess, [tf.saved_model.tag_constants.SERVING])
-    #builder.save()
     Rr_test, Rs_test, Ra_test = getRmatrix(len(test[0]))
-    a,b = newsess.run([loss,out_sigmoid],feed_dict={O:test[0],Rr:Rr_test,Rs:Rs_test,Ra:Ra_test,label:test[2],ntk_max:test[1],evtweight:np.ones(test[2].shape)})
+    #a,b = newsess.run([loss,out_sigmoid],feed_dict={O:test[0],Rr:Rr_test,Rs:Rs_test,Ra:Ra_test})#,label:test[2],ntk_max:test[1],evtweight:np.ones(test[2].shape)})
+    b = newsess.run([out_sigmoid],feed_dict={O:test[0],Rr:Rr_test,Rs:Rs_test,Ra:Ra_test})#,label:test[2],ntk_max:test[1],evtweight:np.ones(test[2].shape)})
 
 
 # In[ ]:
 
-
+b = b[0]
 plt.hist(b[test[2]==1], bins=50, alpha=0.5, density=True, stacked=True, label="signal")
 plt.hist(b[test[2]==0], bins=50, alpha=0.5, density=True, stacked=True, label="background")
 plt.legend(loc="best")
