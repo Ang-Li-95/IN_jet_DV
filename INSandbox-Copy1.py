@@ -30,8 +30,9 @@ Nr = No*(No-1)
 Dp = 150
 Dr = 1
 De = 300
-lambda_dcorr = 0.05
-lambda_param = 0.0005
+lambda_dcorr = 0
+lambda_param = 0.0002
+lambda_dcorr_met = 0.9
 
 normalize_factors = {}
 # orders: ['vtx_x', 'vtx_y', 'vtx_z', 'vtx_ntrack', 'vtx_dBV', 'vtx_err_dBV', 'vtx_px', 'vtx_py', 'vtx_pz', 'vtx_E']
@@ -48,6 +49,9 @@ def GetDataAndLabel(fns, split, isSignal, lumi=8): # lumi: luminosity/10000
     ntk_train = None
     ntk_val = None
     ntk_test = None
+    met_train = None
+    met_val = None
+    met_test = None
     for fn in fns:
         print(fn)
         f = uproot.open(fndir+fn+'.root')
@@ -83,39 +87,51 @@ def GetDataAndLabel(fns, split, isSignal, lumi=8): # lumi: luminosity/10000
         m = zeropadding(mdf[jetvar], No)
         ntk_np = mdf['max_SV_ntracks'].groupby(level='entry').first().to_numpy()
         ntk_np = ntk_np.reshape((-1,1))
+        met_np = mdf['met_pt'].groupby(level='entry').first().to_numpy()
+        met_np = met_np.reshape((-1,1))
         if len(m)>0:
             if data_train is not None:
                 data_train = np.concatenate([data_train,m])
                 ntk_train = np.concatenate([ntk_train, ntk_np])
+                met_train = np.concatenate([met_train, met_np])
             else:
                 data_train = m
                 ntk_train = ntk_np
+                met_train = met_np
         
         # val
         mdf = matrix.loc[train_idx+1:val_idx]
         m = zeropadding(mdf[jetvar], No)
         ntk_np = mdf['max_SV_ntracks'].groupby(level='entry').first().to_numpy()
         ntk_np = ntk_np.reshape((-1,1))
+        met_np = mdf['met_pt'].groupby(level='entry').first().to_numpy()
+        met_np = met_np.reshape((-1,1))
         if len(m)>0:
             if data_val is not None:
                 data_val = np.concatenate([data_val,m])
                 ntk_val = np.concatenate([ntk_val, ntk_np])
+                met_val = np.concatenate([met_val, met_np])
             else:
                 data_val = m
                 ntk_val = ntk_np
+                met_val = met_np
         
         # test
         mdf = matrix.loc[val_idx+1:nevt]
         m = zeropadding(mdf[jetvar], No)
         ntk_np = mdf['max_SV_ntracks'].groupby(level='entry').first().to_numpy()
         ntk_np = ntk_np.reshape((-1,1))
+        met_np = mdf['met_pt'].groupby(level='entry').first().to_numpy()
+        met_np = met_np.reshape((-1,1))
         if len(m)>0:
             if data_test is not None:
                 data_test = np.concatenate([data_test,m])
                 ntk_test = np.concatenate((ntk_test, ntk_np))
+                met_test = np.concatenate((met_test, met_np))
             else:
                 data_test = m
                 ntk_test = ntk_np
+                met_test = met_np
     if not isSignal:
         label_train = np.zeros((len(ntk_train), 1))
         label_val = np.zeros((len(ntk_val), 1))
@@ -125,7 +141,7 @@ def GetDataAndLabel(fns, split, isSignal, lumi=8): # lumi: luminosity/10000
         label_val = np.ones((len(ntk_val), 1))
         label_test = np.ones((len(ntk_test), 1))
         
-    return (data_train, ntk_train, label_train), (data_val, ntk_val, label_val), (data_test, ntk_test, label_test)
+    return (data_train, ntk_train, label_train, met_train), (data_val, ntk_val, label_val, met_val), (data_test, ntk_test, label_test, met_test)
 
 
 def GetDataAndLabel_old(fns, split, isSignal):
@@ -282,10 +298,11 @@ def importData(split, normalize=True,shuffle=True):
     train_bkg, val_bkg, test_bkg = GetDataAndLabel(fns_bkg, split, False)
     sig_bkg_weight = float(len(train_bkg[0]))/len(train_sig[0])
     print("Training data: {0} signals {1} backgrounds".format(len(train_sig[0]), len(train_bkg[0])))
-    data_train = [None]*3
-    data_val = [None]*3
-    data_test = [None]*3
-    for i in range(3):
+    nitems = len(train_sig)
+    data_train = [None]*nitems
+    data_val = [None]*nitems
+    data_test = [None]*nitems
+    for i in range(nitems):
         data_train[i] = np.concatenate([train_sig[i], train_bkg[i]])
         data_val[i] = np.concatenate([val_sig[i], val_bkg[i]])
         data_test[i] = np.concatenate([test_sig[i], test_bkg[i]])
@@ -293,15 +310,15 @@ def importData(split, normalize=True,shuffle=True):
     
     if shuffle:
         shuffler = np.random.permutation(len(data_train[0]))
-        for i in range(3):
+        for i in range(nitems):
             data_train[i] = data_train[i][shuffler]
         
         shuffler = np.random.permutation(len(data_val[0]))
-        for i in range(3):
+        for i in range(nitems):
             data_val[i] = data_val[i][shuffler]
         
         shuffler = np.random.permutation(len(data_test[0]))
-        for i in range(3):
+        for i in range(nitems):
             data_test[i] = data_test[i][shuffler]
             
     if normalize:
@@ -569,6 +586,7 @@ Ra = tf.placeholder(tf.float32, [None, Dr, Nr], name="Ra")
 
 label = tf.placeholder(tf.float32, [None, 1], name="label")
 ntk_max = tf.placeholder(tf.float32, [None, 1], name="ntk_max")
+met = tf.placeholder(tf.float32, [None, 1], name="met")
 evtweight = tf.placeholder(tf.float32, [None, 1], name="evtweight")
 
 B = m(O,Rr,Rs,Ra)
@@ -594,12 +612,13 @@ loss_bce = tf.nn.weighted_cross_entropy_with_logits(labels=label,logits=out,pos_
 loss_bce = tf.reduce_mean(loss_bce)
 #mse = tf.reduce_mean(D12,axis=None)
 #mse=tf.reduce_mean(tf.reduce_mean(tf.square(out-label),[1,2]))
-loss_param = 0.3*tf.nn.l2_loss(E)
+loss_param = 0.5*tf.nn.l2_loss(E)
 #loss = 0
 for i in params_list:
     loss_param+=tf.nn.l2_loss(i)
 dcorr = distance_corr(ntk_max, out_sigmoid, evtweight)
-loss = loss_bce+lambda_param*loss_param+lambda_dcorr*dcorr
+dcorr_met = distance_corr(met, out_sigmoid, evtweight)
+loss = loss_bce+lambda_param*loss_param+lambda_dcorr*dcorr+lambda_dcorr_met*dcorr_met
 optimizer = tf.train.AdamOptimizer(0.001)
 trainer=optimizer.minimize(loss)
 
@@ -622,47 +641,57 @@ h_bce = []
 h_bce_val = []
 h_dcorr = []
 h_dcorr_val = []
+h_dcorr_met = []
+h_dcorr_met_val = []
 min_loss = 100
 for i in range(num_epochs):
     loss_train = 0
     l_bce_train = 0
     l_dcorr_train = 0
+    l_dcorr_met_train = 0
     for j in range(int(len(train[0])/batch_num)):
         batch_data = train[0][j*batch_num:(j+1)*batch_num]
         batch_label = train[2][j*batch_num:(j+1)*batch_num]
         batch_ntk = train[1][j*batch_num:(j+1)*batch_num]
-        batch_weight = (batch_label-1)*(-1)
-        #batch_weight = np.ones(batch_label.shape)
-        l_train,_,bce_train,dcorr_train=sess.run([loss,trainer,loss_bce,dcorr],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight})
+        batch_met = train[3][j*batch_num:(j+1)*batch_num]
+        #print("batch_met: ")
+        #print(batch_met)
+        #batch_weight = (batch_label-1)*(-1)
+        batch_weight = np.ones(batch_label.shape)
+        l_train,_,bce_train,dcorr_train,dcorr_met_train=sess.run([loss,trainer,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
         loss_train+=l_train
         l_bce_train+=bce_train
         l_dcorr_train+=dcorr_train
+        l_dcorr_met_train+=dcorr_met_train
     history.append(loss_train)
     h_bce.append(l_bce_train)
     h_dcorr.append(l_dcorr_train)
+    h_dcorr_met.append(l_dcorr_met_train)
     #shuffle data after each epoch
     train_idx = np.array(range(len(train[0])))
     np.random.shuffle(train_idx)
-    train[0] = train[0][train_idx]
-    train[1] = train[1][train_idx]
-    train[2] = train[2][train_idx]
+    for ite in range(len(train)):
+      train[ite] = train[ite][train_idx]
     
     # validation after each epoch
     loss_val = 0
     l_bce_val = 0
     l_dcorr_val = 0
+    l_dcorr_met_val = 0
     for j in range(int(len(val[0])/batch_num)):
         batch_data = val[0][j*batch_num:(j+1)*batch_num]
         batch_label = val[2][j*batch_num:(j+1)*batch_num]
         batch_ntk = val[1][j*batch_num:(j+1)*batch_num]
-        batch_weight = (batch_label-1)*(-1)
-        #batch_weight = np.ones(batch_label.shape)
-        l_val,_,bce_val,dcorr_val=sess.run([loss,out_sigmoid,loss_bce,dcorr],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight})
-        #print("V12: {}".format(_))
-        #print("P: {}".format(batch_label))
+        batch_met = val[3][j*batch_num:(j+1)*batch_num]
+        #print("batch_met: ")
+        #print(batch_met)
+        #batch_weight = (batch_label-1)*(-1)
+        batch_weight = np.ones(batch_label.shape)
+        l_val,_,bce_val,dcorr_val,dcorr_met_val=sess.run([loss,out_sigmoid,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:Rr_data,Rs:Rs_data,Ra:Ra_data,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
         loss_val+=l_val
         l_bce_val+=bce_val
         l_dcorr_val+=dcorr_val
+        l_dcorr_met_val+=dcorr_met_val
         
     if loss_val < min_loss:
         min_loss = loss_val
@@ -671,15 +700,18 @@ for i in range(num_epochs):
     history_val.append(loss_val)
     h_bce_val.append(l_bce_val)
     h_dcorr_val.append(l_dcorr_val)
+    h_dcorr_met_val.append(l_dcorr_met_val)
     val_idx = np.array(range(len(val[0])))
     np.random.shuffle(val_idx)
-    val[0] = val[0][val_idx]
-    val[1] = val[1][val_idx]
-    val[2] = val[2][val_idx]
+
+    for ite in range(len(val)):
+      val[ite] = val[ite][val_idx]
     
-    print("Epoch {0} Training loss: {1}, BCE: {2}, dCorr: {3} Val loss: {4}, BCE: {5}, dCorr: {6} "
-          .format(i,loss_train/float(int(len(train[0])/batch_num)), l_bce_train/float(int(len(train[0])/batch_num)), l_dcorr_train/float(int(len(train[0])/batch_num)), 
-                  loss_val/float(int(len(val[0])/batch_num)), l_bce_val/float(int(len(val[0])/batch_num)), l_dcorr_val/float(int(len(val[0])/batch_num)) ))
+    print("Epoch {}:".format(i))
+    print("Training loss: {0}, BCE: {1}, dCorr: {2}, dCorrMET: {3} "
+          .format(loss_train/float(int(len(train[0])/batch_num)), l_bce_train/float(int(len(train[0])/batch_num)), l_dcorr_train/float(int(len(train[0])/batch_num)), l_dcorr_met_train/float(int(len(train[0])/batch_num)) ))
+    print("Validation loss: {0}, BCE: {1}, dCorr: {2}, dCorrMET: {3} "
+          .format(loss_val/float(int(len(val[0])/batch_num)), l_bce_val/float(int(len(val[0])/batch_num)), l_dcorr_val/float(int(len(val[0])/batch_num)) , l_dcorr_met_val/float(int(len(val[0])/batch_num)) ))
 
 
 # In[ ]:

@@ -207,9 +207,9 @@ def makehist(data, weight, label, name, **kwargs):
     plt.close()
     return
 
-def comparehists(datas, weight, legends, label, name, **kwargs):
+def comparehists(datas, weight, legends, label, density, name, **kwargs):
     for i in range(len(datas)):
-        plt.hist(datas[i],weights=weight[i], label=legends[i], alpha=0.5, density=True, **kwargs)
+        plt.hist(datas[i],weights=weight[i], label=legends[i], alpha=0.5, density=density, **kwargs)
     plt.title(label[0])
     plt.xlabel(label[1])
     plt.ylabel(label[2])
@@ -236,60 +236,92 @@ def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
     MLoutput_sig = np.concatenate(MLoutput_sig, axis=None)
     w_sig = np.ones(MLoutput_sig.shape)
     comparehists([MLoutput_sig, MLoutput_bkg], [w_sig, w_bkg], ['signal', 'background'], 
-                 ['MLscore', 'MLscore', 'fraction of events'],'_sig_bkg_compare', bins=100, range=(0,1))
+                 ['MLscore', 'MLscore', 'fraction of events'],True, '_sig_bkg_compare', bins=100, range=(0,1))
     #compare.show()
     #return compare
 
-def plotWithIdx(phys_vars, idx, name, fns):
-    
-    # variables that each event has only one value
-    plot_vars_single = {
-        'met_pt':['MET','MET (GeV)','# events'], 
-        'nsv':['nSV','nSV','# events'], 
-        'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
-        'MLScore':['MLScore','MLScore','# events'],
-    }
-    
-    # variables that each event has possibly more than one value
-    plot_vars_multi = {
-        'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
-        'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
-        'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events']
-    }
-    
-    # variables that each event has multiple arrays
-    plot_vars_nestedarray = {
-        'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
-        'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
-        'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigmadxy','# events'],
-    }
-    
-    plot_setting = {
-        'met_pt': {'range':(0,150), 'bins':60},
-        'nsv': {'range':(0,10), 'bins':10},
-        'max_SV_ntracks': {'range':(0,40), 'bins':40},
-        'MLScore': {'range':(0,1), 'bins':100},
-        'vtx_ntk': {'range':(0,40), 'bins':40},
-        'vtx_dBV': {'range':(0,0.4), 'bins':100},
-        'vtx_dBVerr': {'range':(0,0.005), 'bins':50},
-        'vtx_tk_pt': {'range':(0,200), 'bins':100},
-        'vtx_tk_eta': {'range':(-4,4), 'bins':50},
-        'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
-        
-    }
-    
+plot_vars_titles = {
+    'met_pt':['MET','MET (GeV)','# events'], 
+    'nsv':['nSV','nSV','# events'], 
+    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
+    'MLScore':['MLScore','MLScore','# events'],
+    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
+    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
+    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigmadxy','# events'],
+
+}
+
+# variables that each event has only one value
+plot_vars_single = {
+    'met_pt':['MET','MET (GeV)','# events'], 
+    'nsv':['nSV','nSV','# events'], 
+    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
+    'MLScore':['MLScore','MLScore','# events'],
+}
+
+# variables that each event has possibly more than one value
+plot_vars_multi = {
+    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
+    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events']
+}
+
+# variables that each event has multiple arrays
+plot_vars_nestedarray = {
+    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
+    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigmadxy','# events'],
+}
+
+plot_setting = {
+    'met_pt': {'range':(0,150), 'bins':60},
+    'nsv': {'range':(0,10), 'bins':10},
+    'max_SV_ntracks': {'range':(0,40), 'bins':40},
+    'MLScore': {'range':(0,1), 'bins':100},
+    'vtx_ntk': {'range':(0,40), 'bins':40},
+    'vtx_dBV': {'range':(0,0.4), 'bins':100},
+    'vtx_dBVerr': {'range':(0,0.005), 'bins':50},
+    'vtx_tk_pt': {'range':(0,200), 'bins':100},
+    'vtx_tk_eta': {'range':(-4,4), 'bins':50},
+    'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
+}
+
+def getPlotData(phys_vars, vars_name, idx, fns):
+    '''
+    this function produced 1d arrays with weights for pyplot hist
+    used for combine different source of background samples with different weight (can be event level)
+    phys_vars: data of different variables
+    vars_name: variables that to be combined
+    idx: indices of events that is going to be used
+    fns: root filenames of all those samples 
+    '''
+
     weights = GetNormWeight(fns, int_lumi=41521.0)
     plot_w = {}
     plot_data = {}
+
+    single_vars = []
+    multi_vars = []
+    nested_vars = []
+    for v in vars_name:
+      if v in plot_vars_single:
+        single_vars.append(v)
+      elif v in plot_vars_multi:
+        multi_vars.append(v)
+      elif v in plot_vars_nestedarray:
+        nested_vars.append(v)
+      else:
+        raise ValueError("variable {} doesn't belong to any variable type!".format(v))
     
     for i in range(len(fns)):
         # w includes event-level weight and xsec normalizetion
-        #w.append(phys_vars[i]['weight'][idx]*weights[i])
-        #print("sample {0} w length {1} idx length {2}".format(fns[i], len(phys_vars[i]['weight']), len(idx[i])))
         if len(phys_vars[i]['weight'][idx[i]])==0:
             continue
         w = phys_vars[i]['weight'][idx[i]]*weights[i]
-        for v in plot_vars_single:
+        for v in single_vars:
             if v in plot_data:
                 plot_data[v].append(phys_vars[i][v][idx[i]])
                 plot_w[v].append(w)
@@ -298,7 +330,7 @@ def plotWithIdx(phys_vars, idx, name, fns):
                 plot_data[v] = [phys_vars[i][v][idx[i]]]
                 plot_w[v] = [w]
         
-        for v in plot_vars_multi:
+        for v in multi_vars:
             var = phys_vars[i][v][idx[i]]
             # make w the same dimension as variables
             w_extended = []
@@ -306,8 +338,6 @@ def plotWithIdx(phys_vars, idx, name, fns):
                 w_extended.append([w[ievt]]*len(var[ievt]))
             var_flattern = np.concatenate(var)
             w_extended = np.concatenate(w_extended)
-            #print(w_extended.shape)
-            #print()
             if v in plot_data:
                 plot_data[v].append(var_flattern)
                 plot_w[v].append(w_extended)
@@ -315,7 +345,7 @@ def plotWithIdx(phys_vars, idx, name, fns):
                 plot_data[v] = [var_flattern]
                 plot_w[v] = [w_extended]
            
-        for v in plot_vars_nestedarray:
+        for v in nested_vars:
             var = phys_vars[i][v][idx[i]]
             # flattern variable data and make w the same dimensions
             w_extended = []
@@ -332,17 +362,26 @@ def plotWithIdx(phys_vars, idx, name, fns):
             else:
                 plot_data[v] = [var_flattern]
                 plot_w[v] = [w_extended]
-            
-    for v_dict in [plot_vars_single, plot_vars_multi, plot_vars_nestedarray]:
-        for v in v_dict:
-            #print(plot_data[v])
-            data_processed = np.concatenate(plot_data[v], axis=None)
-            w_processed = np.concatenate(plot_w[v], axis=None)
-            if v in plot_setting:
-                makehist(data_processed, w_processed, v_dict[v], name, **plot_setting[v])
-            else:
-                makehist(data_processed, w_processed, v_dict[v], name)
-            #p.show()
+    for v in vars_name:
+        plot_data[v] = np.concatenate(plot_data[v], axis=None)
+        plot_w[v] = np.concatenate(plot_w[v], axis=None)
+    
+    return plot_data, plot_w
+
+def plotWithIdx(phys_vars, idx, name, fns):
+    
+    vars_name = [
+      'met_pt','nsv','max_SV_ntracks','MLScore',
+      'vtx_ntk','vtx_dBV','vtx_dBVerr',
+      'vtx_tk_pt','vtx_tk_eta','vtx_tk_nsigmadxy'
+                ]
+    data, weight = getPlotData(phys_vars, vars_name, idx, fns)
+    for v in vars_name:
+      if v in plot_setting:
+          makehist(data[v], weight[v], plot_vars_titles[v], name, **plot_setting[v])
+      else:
+          makehist(data[v], weight[v], plot_vars_titles[v], name)
+
     
 
 def main():
@@ -377,8 +416,52 @@ def main():
         idx_highML.append(np.reshape(highML, len(highML)))
         lowML = out<=MLscore_threshold
         idx_lowML.append(np.reshape(lowML, len(lowML)))
-    plotWithIdx(phys_vars, idx_highML, 'highML', fns)
-    plotWithIdx(phys_vars, idx_lowML, 'lowML', fns)
+
+    vars_name = [
+      'met_pt','nsv','max_SV_ntracks','MLScore',
+      'vtx_ntk','vtx_dBV','vtx_dBVerr',
+      'vtx_tk_pt','vtx_tk_eta','vtx_tk_nsigmadxy'
+                ]
+    data_highML, weight_highML = getPlotData(phys_vars, vars_name, idx_highML, fns)
+    data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
+    for v in vars_name:
+      if v in plot_setting:
+          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], False, '_high_low_ML_compare', log=True, **plot_setting[v])
+      else:
+          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], False, '_high_low_ML_compare', log=True)
+
+    # print number of events in each region
+    weights = GetNormWeight(fns, int_lumi=41521.0)
+    cut_var = 'max_SV_ntracks'
+    cut_val = 5
+    # total_sum/var = [A,B,C,D] representing regions
+    region_names = ['A', 'B', 'C', 'D']
+    total_sum = [0,0,0,0]
+    total_var = [0,0,0,0]
+    for i in range(len(fns)):
+        w = phys_vars[i]['weight']
+        cut_var_array = phys_vars[i][cut_var]
+        cut_region = [
+            (idx_highML[i]) & (cut_var_array>=cut_val), # A
+            (idx_lowML[i]) & (cut_var_array>=cut_val),  # B
+            (idx_highML[i]) & (cut_var_array<cut_val),  # C
+            (idx_lowML[i]) & (cut_var_array<cut_val),   # D
+        ]
+        for iregion in range(len(cut_region)):
+            w_region = w[cut_region[iregion]]
+            nevt_region = np.sum(w_region)*weights[i]
+            nevt_variance_region = nevt_region*weights[i]
+            total_sum[iregion] += nevt_region
+            total_var[iregion] += nevt_variance_region
+            print("sample {} in region {} : {} +- {}".format(fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region)))
+            
+    print("Summing together: ")
+    for iregion in range(len(region_names)):
+        print("Region {}: {} +- {}".format(region_names[iregion],total_sum[iregion],np.sqrt(total_var[iregion])))
+    
+
+    #plotWithIdx(phys_vars, idx_highML, 'highML', fns)
+    #plotWithIdx(phys_vars, idx_lowML, 'lowML', fns)
     #sig_fns = ['mfv_splitSUSY_tau000001000um_M1400_1200_2017']
     sig_fns = ['mfv_splitSUSY_tau000001000um_M2000_1800_2017']
     MLinputs_sig, phys_vars_sig = GetData(sig_fns)
