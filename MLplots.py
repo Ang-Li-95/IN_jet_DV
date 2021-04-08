@@ -19,10 +19,13 @@ import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
 import matplotlib.pyplot as plt
+import numpy as np
+
 No=10
+Nr = No*(No-1)
 Ds=4
 Dr=1
-import numpy as np
+use_dR = True
 fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreeVmetthresv1METm/'
 m_path = './'
 save_plot_path='./'
@@ -86,6 +89,7 @@ def GetNevts(fns):
 
 def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
     ML_inputs = []
+    ML_inputs_original = []
     phys_variables = []
     ML_variables = ['evt', 'max_SV_ntracks', 'met_pt', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
     jet_variables = ['jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
@@ -99,32 +103,38 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
         phys = f.arrays(variables, cut, library='np')
         matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
         m = zeropadding(matrix, No)
+        ML_inputs_original.append(m.copy())
         m = normalizedata(m)
         ML_inputs.append(m)
         phys_variables.append(phys)
         
-    return ML_inputs, phys_variables
+    return ML_inputs, ML_inputs_original, phys_variables
 
-def calcMLscore(ML_inputs, model_path='./', model_name="test_model.meta"):
+def calcMLscore(ML_inputs, ML_inputs_ori, model_path='./', model_name="test_model.meta"):
     batch_size=4096
     with tf.Session() as sess:
         saver = tf.train.import_meta_graph(model_path+model_name)
         saver.restore(sess, tf.train.latest_checkpoint(model_path))
         MLscores = []
-        for ML_input in ML_inputs:
+        for iML in range(len(ML_inputs)):
+            ML_input = ML_inputs[iML]
+            ML_input_ori = ML_inputs_ori[iML]
             evt=0
             outputscore = []
             while evt<len(ML_input):
-                if evt+4096 <= len(ML_input):
-                    batch_input = ML_input[evt:evt+4096]
-                    
+                if evt+batch_size <= len(ML_input):
+                    batch_input = ML_input[evt:evt+batch_size]
+                    batch_input_ori = ML_input_ori[evt:evt+batch_size]
                 else:
                     batch_input = ML_input[evt:]
-                evt += 4096
-                Rr, Rs, Ra = getRmatrix(len(batch_input))
+                    batch_input_ori = ML_input_ori[evt:]
+                evt += batch_size
+                if use_dR:
+                  Rr, Rs, Ra = getRmatrix_dR2(batch_input_ori[:,1:3,:])
+                else:
+                  Rr, Rs, Ra = getRmatrix(len(batch_input))
                 ML_output = sess.run(['INscore:0'],feed_dict={'O:0':batch_input,'Rr:0':Rr,'Rs:0':Rs,'Ra:0':Ra})#,label:test[2],ntk_max:test[1],evtweight:(test[2]-1)*(-1)})
                 outputscore.append(ML_output[0])
-                #print(ML_output[0].shape)
             outputscore = np.concatenate(outputscore)
             MLscores.append(outputscore)
     return MLscores
@@ -165,22 +175,19 @@ def normalizedata(data):
         [117.2960205078125, 34.48314666748047, 679.9258422851562],
     ]
     for i in range(n_features_data):
-        #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
-        #l = l[l!=0]
-        #median = l[int(len(l)*0.5)]
-        #l_min = l[int(len(l)*0.05)]
-        #l_max = l[int(len(l)*0.95)]
-        #normalize_factors[i] = [median,l_min,l_max]
-        #print(normalize_factors[i])
-        median = normalize_factors[i][0]
-        l_min = normalize_factors[i][1]
-        l_max = normalize_factors[i][2]
+        l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
+        l = l[l!=0]
+        median = l[int(len(l)*0.5)]
+        l_min = l[int(len(l)*0.05)]
+        l_max = l[int(len(l)*0.95)]
+        #median = normalize_factors[i][0]
+        #l_min = normalize_factors[i][1]
+        #l_max = normalize_factors[i][2]
         data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
     return data
 
 def getRmatrix(mini_batch_num=100):
     # Set Rr_data, Rs_data, Ra_data and X_data
-    Nr = No*(No-1)
     Rr_data=np.zeros((mini_batch_num,No,Nr),dtype=float)
     Rs_data=np.zeros((mini_batch_num,No,Nr),dtype=float)
     Ra_data=np.ones((mini_batch_num,Dr,Nr),dtype=float)
@@ -193,6 +200,34 @@ def getRmatrix(mini_batch_num=100):
                 cnt+=1
     return Rr_data, Rs_data, Ra_data
 
+def getRmatrix_dR2(jets):
+    n_evt = len(jets)
+    # Set Rr_data, Rs_data, Ra_data and X_data
+    Rr_data=np.zeros((n_evt,No,Nr),dtype=float)
+    Rs_data=np.zeros((n_evt,No,Nr),dtype=float)
+    Ra_data=np.ones((n_evt,Dr,Nr),dtype=float)
+    cnt=0
+    for i in range(No):
+        for j in range(No):
+            if(i!=j):
+                # use mask to get rid the padded non-existing jets
+                mask = np.multiply(jets[:,0,i],jets[:,0,j])==0
+                dR2 = np.sum(np.square(jets[:,0:2,i]-jets[:,0:2,j]),axis=1)
+                dR2[mask] = -1
+                dR2_inverse = (1e-03)/dR2
+                dR2_inverse[mask] = 0
+                Rr_data[:,i,cnt]=dR2_inverse
+                Rs_data[:,j,cnt]=dR2_inverse
+                cnt+=1
+    R_sum = np.sum(Rr_data,axis=(1,2))
+    #Rr_data = Rr_data/R_sum
+    #Rs_data = Rs_data/R_sum
+    for i in range(len(R_sum)):
+        if R_sum[i]==0:
+            continue
+        Rr_data[i] = Rr_data[i]/R_sum[i]
+        Rs_data[i] = Rs_data[i]/R_sum[i]
+    return Rr_data, Rs_data, Ra_data
 
 # In[7]:
 
@@ -405,8 +440,8 @@ def main():
       'ttbar_2017'
     ]
     MLscore_threshold = 0.4
-    ML_inputs, phys_vars = GetData(fns)
-    ML_outputs = calcMLscore(ML_inputs)
+    ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
+    ML_outputs = calcMLscore(ML_inputs, ML_inputs_ori)
     for i in range(len(fns)):
         phys_vars[i]['MLScore'] = ML_outputs[i]
     idx_highML = []
@@ -464,11 +499,38 @@ def main():
     #plotWithIdx(phys_vars, idx_lowML, 'lowML', fns)
     #sig_fns = ['mfv_splitSUSY_tau000001000um_M1400_1200_2017']
     sig_fns = ['mfv_splitSUSY_tau000001000um_M2000_1800_2017']
-    MLinputs_sig, phys_vars_sig = GetData(sig_fns)
-    ML_outputs_sig = calcMLscore(MLinputs_sig)
+    MLinputs_sig, MLinputs_sig_ori, phys_vars_sig = GetData(sig_fns)
+    ML_outputs_sig = calcMLscore(MLinputs_sig, MLinputs_sig_ori)
     for i in range(len(sig_fns)):
         phys_vars_sig[i]['MLScore'] = ML_outputs_sig[i]
     MLoutput(phys_vars_sig, sig_fns, phys_vars, fns)
+
+    weights = GetNormWeight(sig_fns, int_lumi=41521.0)
+    # total_sum/var = [A,B,C,D] representing regions
+    region_names = ['A', 'B', 'C', 'D']
+    #total_sum = [0,0,0,0]
+    #total_var = [0,0,0,0]
+    for i in range(len(sig_fns)):
+        w = phys_vars_sig[i]['weight']
+        cut_var_array = phys_vars_sig[i][cut_var]
+        highML_sig = ML_outputs_sig[i]>MLscore_threshold
+        highML_sig = np.reshape(highML_sig, len(highML_sig))
+        lowML_sig = ML_outputs_sig[i]<=MLscore_threshold
+        lowML_sig = np.reshape(lowML_sig, len(lowML_sig))
+        cut_region = [
+            (highML_sig) & (cut_var_array>=cut_val), # A
+            (lowML_sig) & (cut_var_array>=cut_val),  # B
+            (highML_sig) & (cut_var_array<cut_val),  # C
+            (lowML_sig) & (cut_var_array<cut_val),   # D
+        ]
+        for iregion in range(len(cut_region)):
+            w_region = w[cut_region[iregion]]
+            nevt_region = np.sum(w_region)*weights[i]
+            nevt_variance_region = nevt_region*weights[i]
+            #total_sum[iregion] += nevt_region
+            #total_var[iregion] += nevt_variance_region
+            print("sample {} in region {} : {} +- {}".format(sig_fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region)))
+            
 
 
 # In[6]:

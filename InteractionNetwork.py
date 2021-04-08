@@ -28,8 +28,8 @@ Dp = 150
 Dr = 1
 De = 300
 lambda_dcorr = 0
-lambda_param = 0.00005
-lambda_dcorr_met = 0.7
+lambda_param = 0.0005
+lambda_dcorr_met = 0.8
 use_dR = True
 
 normalize_factors = {}
@@ -487,14 +487,14 @@ for i in range(len(params_list)):
     
 loss_bce = tf.nn.weighted_cross_entropy_with_logits(labels=label,logits=out,pos_weight=pos_weight)
 loss_bce = tf.reduce_mean(loss_bce)
-loss_param = 0.5*tf.nn.l2_loss(E)
+loss_param = tf.nn.l2_loss(E)
 #loss = 0
 for i in params_list:
     loss_param+=tf.nn.l2_loss(i)
 dcorr = distance_corr(ntk_max, out_sigmoid, evtweight)
 dcorr_met = distance_corr(met, out_sigmoid, evtweight)
 loss = loss_bce+lambda_param*loss_param+lambda_dcorr*dcorr+lambda_dcorr_met*dcorr_met
-optimizer = tf.train.AdamOptimizer(0.001)
+optimizer = tf.train.AdamOptimizer(0.0005)
 trainer=optimizer.minimize(loss)
 
 # tensorboard
@@ -513,7 +513,7 @@ else:
     Rr_val, Rs_val, Ra_val = getRmatrix(batch_num)
 
 # training
-num_epochs=150
+num_epochs=500
 history = []
 history_val = []
 h_bce = []
