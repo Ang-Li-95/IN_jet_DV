@@ -21,17 +21,19 @@ tf.disable_v2_behavior()
 import matplotlib.pyplot as plt
 import numpy as np
 
-No=10
+No=50
 Nr = No*(No-1)
-Ds=4
+Ds=7
 Dr=1
-use_dR = True
-fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreeVmetthresv1METm/'
-m_path = './20210405_0/'
+use_dR = False
+fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowVkeeptk_v1METm/'
+m_path = './20210411_0/'
+#save_plot_path='./20210411_0/'
 save_plot_path='./'
 normalize_factors = {}
 # orders: ['vtx_x', 'vtx_y', 'vtx_z', 'vtx_ntrack', 'vtx_dBV', 'vtx_err_dBV', 'vtx_px', 'vtx_py', 'vtx_pz', 'vtx_E']
 
+mlvar = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
 
 # In[2]:
 
@@ -91,17 +93,20 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
     ML_inputs = []
     ML_inputs_original = []
     phys_variables = []
-    ML_variables = ['evt', 'max_SV_ntracks', 'met_pt', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
-    jet_variables = ['jet_pt', 'jet_eta', 'jet_phi', 'jet_energy']
     variables = ['evt', 'weight', 'max_SV_ntracks', 'met_pt', 'met_phi', 
                  'nsv', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
+                 'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig',
                  'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 'vtx_tk_pt', 'vtx_tk_eta', 'vtx_tk_nsigmadxy']
     for fn in fns:
         print(fn)
         f = uproot.open(fn_dir+fn+'.root')
         f = f["mfvJetTreer/tree_DV"]
+        if len(f['evt'].array())==0:
+          print( "no events!!!")
+          continue
         phys = f.arrays(variables, cut, library='np')
-        matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
+        matrix = np.array([phys[v] for v in mlvar])
+        #matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
         m = zeropadding(matrix, No)
         ML_inputs_original.append(m.copy())
         m = normalizedata(m)
@@ -154,7 +159,8 @@ def zeropadding(matrix, l):
     #print(idx)
     for i in range(matrix.shape[1]):
         # transfer df to matrix for each event
-        m = np.array([matrix[:,i][0],matrix[:,i][1], matrix[:,i][2], matrix[:,i][3]])
+        #m = np.array([matrix[:,i][0],matrix[:,i][1], matrix[:,i][2], matrix[:,i][3]])
+        m = np.array([matrix[:,i][v] for v in range(len(mlvar))])
         #m = np.array(df.loc[i].T)
         if m.shape[1]<l:
             idx_mod = l-m.shape[1]
@@ -169,20 +175,23 @@ def zeropadding(matrix, l):
 def normalizedata(data):
     n_features_data = Ds
     normalize_factors = [
-        [80.74742126464844, 25.610614776611328, 402.87548828125],
-        [0.0019912796560674906, -1.7208560705184937, 1.7145205736160278],
-        [-0.02133125066757202, -2.826939582824707, 2.815577507019043],
-        [117.2960205078125, 34.48314666748047, 679.9258422851562],
+        [2.1816406679450657, 1.062500040644502, 20.078124592116605],
+        [0.12451552155432945, -1.8609576341644036, 2.053407424463079],
+        [-0.06035980748269992, -2.8188307302253506, 2.801946409279582],
+        [-1.5050249861509261e-05, -0.026793859606046376, 0.026827086804321543],
+        [-0.0039861770169507685, -9.171536302834037, 9.322075933251009],
+        [-0.1705471082009359, -5.720800580412514, 5.219436095637275],
+        [-22.98692569571753, -1463.7623074782282, 1192.6415322048178],
     ]
     for i in range(n_features_data):
-        l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
-        l = l[l!=0]
-        median = l[int(len(l)*0.5)]
-        l_min = l[int(len(l)*0.05)]
-        l_max = l[int(len(l)*0.95)]
-        #median = normalize_factors[i][0]
-        #l_min = normalize_factors[i][1]
-        #l_max = normalize_factors[i][2]
+        #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
+        #l = l[l!=0]
+        #median = l[int(len(l)*0.5)]
+        #l_min = l[int(len(l)*0.05)]
+        #l_max = l[int(len(l)*0.95)]
+        median = normalize_factors[i][0]
+        l_min = normalize_factors[i][1]
+        l_max = normalize_factors[i][2]
         data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
     return data
 
@@ -238,7 +247,7 @@ def makehist(data, weight, label, name, **kwargs):
     plt.title(label[0]+'_'+name)
     plt.xlabel(label[1])
     plt.ylabel(label[2])
-    plt.savefig(label[0]+name+'.png')
+    plt.savefig(save_plot_path+label[0]+name+'.png')
     plt.close()
     return
 
@@ -249,7 +258,7 @@ def comparehists(datas, weight, legends, label, density, name, **kwargs):
     plt.xlabel(label[1])
     plt.ylabel(label[2])
     plt.legend(loc='best')
-    plt.savefig(label[0]+name+'.png')
+    plt.savefig(save_plot_path+label[0]+name+'.png')
     plt.close()
     return 
 
