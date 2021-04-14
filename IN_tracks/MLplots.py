@@ -274,6 +274,37 @@ def comparehists(datas, weight, legends, label, density, name, **kwargs):
     plt.close()
     return 
 
+def getDivide(a, b, epsilon=1e-08):
+    '''
+    substitude 0 in a and b with epsilon to avoid nan and inf
+    '''
+    tempa = a
+    tempb = b
+    tempa[tempa==0] = epsilon
+    tempb[tempb==0] = epsilon
+    return np.divide(tempa,tempb)
+
+def comparehistswithratio(datas, weight, legends, label, rationame, density, name, **kwargs):
+    assert(len(datas)==2)
+    fig, axs = plt.subplots(2,1,figsize=(6,6), gridspec_kw={'height_ratios': [3, 1]})
+    plt.axes(axs[0])
+    p0 = plt.hist(datas[0],weights=weight[0], label=legends[0], alpha=0.5, density=density, **kwargs)
+    p1 = plt.hist(datas[1],weights=weight[1], label=legends[1], alpha=0.5, density=density, **kwargs)
+    plt.title(label[0])
+    plt.ylabel(label[2])
+    plt.legend(loc='best')
+    plt.axes(axs[1], sharex=axs[0])
+    ratiowidth = p0[1][1]-p0[1][0]
+    ratiox = p0[1][:len(p0[1])-1]+ratiowidth/2.0
+    plt.bar(ratiox,getDivide(p0[0],p1[0]),width=ratiowidth,alpha=0.5)
+    plt.plot([p1[1][0], p1[1][-1]], [1, 1], color='k', linestyle='--', linewidth=1)
+    plt.ylim([0,5])
+    plt.xlabel(label[1])
+    plt.ylabel(rationame)
+    plt.savefig(save_plot_path+label[0]+name+'.png')
+    plt.close()
+    return 
+
 def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
     weights = GetNormWeight(bkg_fns, int_lumi=41521.0)
     MLoutput_bkg = []
@@ -382,9 +413,9 @@ plot_setting = {
     'vtx_tk_dxy': {'range':(0,0.5), 'bins':50},
     'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':50},
     'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
-    'vtx_tk_dz': {'range':(0,50), 'bins':50},
+    'vtx_tk_dz': {'range':(0,20), 'bins':50},
     'vtx_tk_dz_err': {'range':(0,0.15), 'bins':100},
-    'vtx_tk_nsigmadz': {'range':(0,6000), 'bins':100},
+    'vtx_tk_nsigmadz': {'range':(0,3000), 'bins':100},
     'jet_pt': {'range':(0,500), 'bins':50},
     'jet_eta': {'range':(-4,4), 'bins':50},
     'jet_phi': {'range':(-3.2,3.2), 'bins':64},
@@ -392,7 +423,7 @@ plot_setting = {
     'tk_eta': {'range':(-4,4), 'bins':50},
     'tk_phi': {'range':(-3.2,3.2), 'bins':64},
     'tk_dxybs': {'range':(-0.5,0.5), 'bins':100},
-    'tk_dxybs_sig': {'range':(-100,100), 'bins':400},
+    'tk_dxybs_sig': {'range':(-40,40), 'bins':100},
     'tk_dxybs_err': {'range':(0,0.06), 'bins':50},
     'tk_dz': {'range':(-15,15), 'bins':50},
     'tk_dz_sig': {'range':(-3000,3000), 'bins':100},
@@ -496,23 +527,23 @@ def plotWithIdx(phys_vars, idx, name, fns):
 
 def main():
     fns = [
-      #'qcdht0200_2017',
-      #'qcdht0300_2017',
+      'qcdht0200_2017',
+      'qcdht0300_2017',
       'qcdht0500_2017',
-      #'qcdht0700_2017', 
-      #'qcdht1000_2017', 
-      #'qcdht1500_2017', 
-      #'qcdht2000_2017', 
-      #'wjetstolnu_2017', 
-      #'wjetstolnuext_2017', 
-      #'zjetstonunuht0100_2017', 
-      #'zjetstonunuht0200_2017', 
-      #'zjetstonunuht0400_2017', 
-      #'zjetstonunuht0600_2017', 
-      #'zjetstonunuht0800_2017', 
-      #'zjetstonunuht1200_2017', 
-      #'zjetstonunuht2500_2017', 
-      #'ttbar_2017'
+      'qcdht0700_2017', 
+      'qcdht1000_2017', 
+      'qcdht1500_2017', 
+      'qcdht2000_2017', 
+      'wjetstolnu_2017', 
+      'wjetstolnuext_2017', 
+      'zjetstonunuht0100_2017', 
+      'zjetstonunuht0200_2017', 
+      'zjetstonunuht0400_2017', 
+      'zjetstonunuht0600_2017', 
+      'zjetstonunuht0800_2017', 
+      'zjetstonunuht1200_2017', 
+      'zjetstonunuht2500_2017', 
+      'ttbar_2017'
     ]
     MLscore_threshold = 0.4
     ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
@@ -538,9 +569,11 @@ def main():
     data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
     for v in vars_name:
       if v in plot_setting:
-          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True, **plot_setting[v])
+          #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True, **plot_setting[v])
+          comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare', log=True, **plot_setting[v])
       else:
-          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True)
+          #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True)
+          comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare', log=True)
 
     # print number of events in each region
     weights = GetNormWeight(fns, int_lumi=41521.0)
