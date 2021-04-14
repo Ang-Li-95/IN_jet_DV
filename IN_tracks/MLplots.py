@@ -26,8 +26,8 @@ Nr = No*(No-1)
 Ds=7
 Dr=1
 use_dR = False
-fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowVkeeptk_v1METm/'
-m_path = './20210411_0/'
+fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETmoreinfoVkeeptk_v1METm/'
+m_path = './20210412_0/'
 #save_plot_path='./20210411_0/'
 save_plot_path='./'
 normalize_factors = {}
@@ -93,10 +93,13 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
     ML_inputs = []
     ML_inputs_original = []
     phys_variables = []
-    variables = ['evt', 'weight', 'max_SV_ntracks', 'met_pt', 'met_phi', 
-                 'nsv', 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
-                 'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig',
-                 'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 'vtx_tk_pt', 'vtx_tk_eta', 'vtx_tk_nsigmadxy']
+    variables = ['evt', 'weight', 'max_SV_ntracks', 'met_pt', 'met_phi', 'nsv', 
+                 'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
+                 'tk_pt', 'tk_eta', 'tk_phi', 
+                 'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err', 
+                 'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 
+                 'vtx_tk_pt', 'vtx_tk_eta', 'vtx_tk_phi', 
+                 'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz']
     for fn in fns:
         print(fn)
         f = uproot.open(fn_dir+fn+'.root')
@@ -161,6 +164,8 @@ def zeropadding(matrix, l):
         # transfer df to matrix for each event
         #m = np.array([matrix[:,i][0],matrix[:,i][1], matrix[:,i][2], matrix[:,i][3]])
         m = np.array([matrix[:,i][v] for v in range(len(mlvar))])
+        sortedidx = np.argsort(m[0,:])[::-1]
+        m = m[:,sortedidx]
         #m = np.array(df.loc[i].T)
         if m.shape[1]<l:
             idx_mod = l-m.shape[1]
@@ -175,13 +180,20 @@ def zeropadding(matrix, l):
 def normalizedata(data):
     n_features_data = Ds
     normalize_factors = [
-        [2.1816406679450657, 1.062500040644502, 20.078124592116605],
-        [0.12451552155432945, -1.8609576341644036, 2.053407424463079],
-        [-0.06035980748269992, -2.8188307302253506, 2.801946409279582],
-        [-1.5050249861509261e-05, -0.026793859606046376, 0.026827086804321543],
-        [-0.0039861770169507685, -9.171536302834037, 9.322075933251009],
-        [-0.1705471082009359, -5.720800580412514, 5.219436095637275],
-        [-22.98692569571753, -1463.7623074782282, 1192.6415322048178],
+        #[2.1816406679450657, 1.062500040644502, 20.078124592116605],
+        #[0.12451552155432945, -1.8609576341644036, 2.053407424463079],
+        #[-0.06035980748269992, -2.8188307302253506, 2.801946409279582],
+        #[-1.5050249861509261e-05, -0.026793859606046376, 0.026827086804321543],
+        #[-0.0039861770169507685, -9.171536302834037, 9.322075933251009],
+        #[-0.1705471082009359, -5.720800580412514, 5.219436095637275],
+        #[-22.98692569571753, -1463.7623074782282, 1192.6415322048178],
+        [2.9902343476623363, 1.6103515050761894, 21.671875749412926],
+        [-0.0043946650753236205, -2.049745121231547, 2.04150510191022],
+        [-0.05507905809333474, -2.817760236900055, 2.8013536897606315],
+        [-1.5896082453516604e-05, -0.028481722307173097, 0.028575759352729244],
+        [-0.005081050368458236, -11.53984885429798, 11.746383776779878],
+        [-0.14610174776891854, -5.729244305990972, 5.3753020975522325],
+        [-20.675411128530353, -1595.7082149035527, 1344.5222105467956],
     ]
     for i in range(n_features_data):
         #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
@@ -294,7 +306,25 @@ plot_vars_titles = {
     'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
     'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
     'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
-    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigmadxy','# events'],
+    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
+    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
+    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
+    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
+    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
+    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
+    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
+    'jet_eta':['jet_eta','jet eta','# events'],
+    'jet_phi':['jet_phi','jet phi','# events'],
+    'tk_pt':['tk_pt','track pT (GeV)','# events'],
+    'tk_eta':['tk_eta','track eta','# events'],
+    'tk_phi':['tk_phi','track phi','# events'],
+    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
+    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
+    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
+    'tk_dz':['tk_dz','track dz (cm)','# events'],
+    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
+    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
 
 }
 
@@ -310,14 +340,32 @@ plot_vars_single = {
 plot_vars_multi = {
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
-    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events']
+    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
+    'jet_eta':['jet_eta','jet eta','# events'],
+    'jet_phi':['jet_phi','jet phi','# events'],
+    'tk_pt':['tk_pt','track pT (GeV)','# events'],
+    'tk_eta':['tk_eta','track eta','# events'],
+    'tk_phi':['tk_phi','track phi','# events'],
+    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
+    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
+    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
+    'tk_dz':['tk_dz','track dz (cm)','# events'],
+    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
+    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
 }
 
 # variables that each event has multiple arrays
 plot_vars_nestedarray = {
     'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
     'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
-    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigmadxy','# events'],
+    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
+    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
+    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
+    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
+    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
+    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
 }
 
 plot_setting = {
@@ -330,7 +378,25 @@ plot_setting = {
     'vtx_dBVerr': {'range':(0,0.005), 'bins':50},
     'vtx_tk_pt': {'range':(0,200), 'bins':100},
     'vtx_tk_eta': {'range':(-4,4), 'bins':50},
+    'vtx_tk_phi': {'range':(-3.2,3.2), 'bins':64},
+    'vtx_tk_dxy': {'range':(0,0.5), 'bins':50},
+    'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':50},
     'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
+    'vtx_tk_dz': {'range':(0,50), 'bins':50},
+    'vtx_tk_dz_err': {'range':(0,0.15), 'bins':100},
+    'vtx_tk_nsigmadz': {'range':(0,6000), 'bins':100},
+    'jet_pt': {'range':(0,500), 'bins':50},
+    'jet_eta': {'range':(-4,4), 'bins':50},
+    'jet_phi': {'range':(-3.2,3.2), 'bins':64},
+    'tk_pt': {'range':(0,500), 'bins':200},
+    'tk_eta': {'range':(-4,4), 'bins':50},
+    'tk_phi': {'range':(-3.2,3.2), 'bins':64},
+    'tk_dxybs': {'range':(-0.5,0.5), 'bins':100},
+    'tk_dxybs_sig': {'range':(-100,100), 'bins':400},
+    'tk_dxybs_err': {'range':(0,0.06), 'bins':50},
+    'tk_dz': {'range':(-15,15), 'bins':50},
+    'tk_dz_sig': {'range':(-3000,3000), 'bins':100},
+    'tk_dz_err': {'range':(0,0.1), 'bins':50},
 }
 
 def getPlotData(phys_vars, vars_name, idx, fns):
@@ -430,23 +496,23 @@ def plotWithIdx(phys_vars, idx, name, fns):
 
 def main():
     fns = [
-      'qcdht0200_2017',
-      'qcdht0300_2017',
+      #'qcdht0200_2017',
+      #'qcdht0300_2017',
       'qcdht0500_2017',
-      'qcdht0700_2017', 
-      'qcdht1000_2017', 
-      'qcdht1500_2017', 
-      'qcdht2000_2017', 
-      'wjetstolnu_2017', 
-      'wjetstolnuext_2017', 
-      'zjetstonunuht0100_2017', 
-      'zjetstonunuht0200_2017', 
-      'zjetstonunuht0400_2017', 
-      'zjetstonunuht0600_2017', 
-      'zjetstonunuht0800_2017', 
-      'zjetstonunuht1200_2017', 
-      'zjetstonunuht2500_2017', 
-      'ttbar_2017'
+      #'qcdht0700_2017', 
+      #'qcdht1000_2017', 
+      #'qcdht1500_2017', 
+      #'qcdht2000_2017', 
+      #'wjetstolnu_2017', 
+      #'wjetstolnuext_2017', 
+      #'zjetstonunuht0100_2017', 
+      #'zjetstonunuht0200_2017', 
+      #'zjetstonunuht0400_2017', 
+      #'zjetstonunuht0600_2017', 
+      #'zjetstonunuht0800_2017', 
+      #'zjetstonunuht1200_2017', 
+      #'zjetstonunuht2500_2017', 
+      #'ttbar_2017'
     ]
     MLscore_threshold = 0.4
     ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
@@ -463,16 +529,18 @@ def main():
 
     vars_name = [
       'met_pt','nsv','max_SV_ntracks','MLScore',
+      'jet_pt', 'jet_eta', 'jet_phi',
       'vtx_ntk','vtx_dBV','vtx_dBVerr',
-      'vtx_tk_pt','vtx_tk_eta','vtx_tk_nsigmadxy'
+      'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err',
+      'vtx_tk_pt','vtx_tk_eta','vtx_tk_phi', 'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz',
                 ]
     data_highML, weight_highML = getPlotData(phys_vars, vars_name, idx_highML, fns)
     data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
     for v in vars_name:
       if v in plot_setting:
-          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], False, '_high_low_ML_compare', log=True, **plot_setting[v])
+          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True, **plot_setting[v])
       else:
-          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], False, '_high_low_ML_compare', log=True)
+          comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True)
 
     # print number of events in each region
     weights = GetNormWeight(fns, int_lumi=41521.0)

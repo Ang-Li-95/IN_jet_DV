@@ -25,7 +25,7 @@ Dr = 1
 De = 20
 lambda_dcorr = 0
 lambda_param = 0.0005
-lambda_dcorr_met = 0.5
+lambda_dcorr_met = 0
 lr = 0.0005
 use_dR = False
 
@@ -284,6 +284,8 @@ def zeropadding(df, l):
     for i in idx:
         # transfer df to matrix for each event
         m = np.array(df.loc[i].T)
+        sortedidx = np.argsort(m[0,:])[::-1]
+        m = m[:,sortedidx]
         if m.shape[1]<l:
             idx_mod = l-m.shape[1]
             pad = np.zeros((m.shape[0],idx_mod))
