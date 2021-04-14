@@ -298,7 +298,7 @@ def comparehistswithratio(datas, weight, legends, label, rationame, density, nam
     ratiox = p0[1][:len(p0[1])-1]+ratiowidth/2.0
     plt.bar(ratiox,getDivide(p0[0],p1[0]),width=ratiowidth,alpha=0.5)
     plt.plot([p1[1][0], p1[1][-1]], [1, 1], color='k', linestyle='--', linewidth=1)
-    plt.ylim([0,5])
+    plt.ylim([0,2])
     plt.xlabel(label[1])
     plt.ylabel(rationame)
     plt.savefig(save_plot_path+label[0]+name+'.png')
