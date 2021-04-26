@@ -12,6 +12,7 @@ import argparse
 import sys
 import copy
 import uproot
+import ROOT
 #import tensorflow as tf
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -37,6 +38,108 @@ mlvar = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_s
 
 # In[2]:
 
+plot_vars_titles = {
+    'met_pt':['MET','MET (GeV)','# events'], 
+    'nsv':['nSV','nSV','# events'], 
+    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
+    'MLScore':['MLScore','MLScore','# events'],
+    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
+    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
+    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
+    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
+    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
+    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
+    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
+    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
+    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
+    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
+    'jet_eta':['jet_eta','jet eta','# events'],
+    'jet_phi':['jet_phi','jet phi','# events'],
+    'tk_pt':['tk_pt','track pT (GeV)','# events'],
+    'tk_eta':['tk_eta','track eta','# events'],
+    'tk_phi':['tk_phi','track phi','# events'],
+    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
+    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
+    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
+    'tk_dz':['tk_dz','track dz (cm)','# events'],
+    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
+    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
+
+}
+
+# variables that each event has only one value
+plot_vars_single = {
+    'met_pt':['MET','MET (GeV)','# events'], 
+    'nsv':['nSV','nSV','# events'], 
+    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
+    'MLScore':['MLScore','MLScore','# events'],
+}
+
+# variables that each event has possibly more than one value
+plot_vars_multi = {
+    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
+    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
+    'jet_eta':['jet_eta','jet eta','# events'],
+    'jet_phi':['jet_phi','jet phi','# events'],
+    'tk_pt':['tk_pt','track pT (GeV)','# events'],
+    'tk_eta':['tk_eta','track eta','# events'],
+    'tk_phi':['tk_phi','track phi','# events'],
+    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
+    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
+    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
+    'tk_dz':['tk_dz','track dz (cm)','# events'],
+    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
+    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
+}
+
+# variables that each event has multiple arrays
+plot_vars_nestedarray = {
+    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
+    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
+    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
+    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
+    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
+    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
+    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
+    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
+    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
+}
+
+plot_setting = {
+    'met_pt': {'range':(0,150), 'bins':60},
+    'nsv': {'range':(0,10), 'bins':10},
+    'max_SV_ntracks': {'range':(0,40), 'bins':40},
+    'MLScore': {'range':(0,1), 'bins':100},
+    'vtx_ntk': {'range':(0,40), 'bins':40},
+    'vtx_dBV': {'range':(0,0.4), 'bins':100},
+    'vtx_dBVerr': {'range':(0,0.005), 'bins':50},
+    'vtx_tk_pt': {'range':(0,200), 'bins':100},
+    'vtx_tk_eta': {'range':(-4,4), 'bins':50},
+    'vtx_tk_phi': {'range':(-3.2,3.2), 'bins':64},
+    'vtx_tk_dxy': {'range':(0,0.5), 'bins':50},
+    'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':50},
+    'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
+    'vtx_tk_dz': {'range':(0,20), 'bins':50},
+    'vtx_tk_dz_err': {'range':(0,0.15), 'bins':100},
+    'vtx_tk_nsigmadz': {'range':(0,3000), 'bins':100},
+    'jet_pt': {'range':(0,500), 'bins':50},
+    'jet_eta': {'range':(-4,4), 'bins':50},
+    'jet_phi': {'range':(-3.2,3.2), 'bins':64},
+    'tk_pt': {'range':(0,500), 'bins':200},
+    'tk_eta': {'range':(-4,4), 'bins':50},
+    'tk_phi': {'range':(-3.2,3.2), 'bins':64},
+    'tk_dxybs': {'range':(-0.5,0.5), 'bins':100},
+    'tk_dxybs_sig': {'range':(-40,40), 'bins':100},
+    'tk_dxybs_err': {'range':(0,0.06), 'bins':50},
+    'tk_dz': {'range':(-15,15), 'bins':50},
+    'tk_dz_sig': {'range':(-3000,3000), 'bins':100},
+    'tk_dz_err': {'range':(0,0.1), 'bins':50},
+}
 
 def GetXsec(fns):
     xsecs = []
@@ -93,7 +196,7 @@ def GetNevts(fns):
     nevents = []
     for fn in fns:
         f = uproot.open(fn_dir+fn+'.root')
-        nevt = f['mfvWeight/h_sums'].values()[f['mfvWeight/h_sums'].axis().labels().index('sum_nevents_total')]
+        nevt = f['mfvWeight/h_sums'].values[f['mfvWeight/h_sums'].xlabels.index('sum_nevents_total')]
         nevents.append(nevt)
     return nevents
 
@@ -115,7 +218,10 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
         if len(f['evt'].array())==0:
           print( "no events!!!")
           continue
-        phys = f.arrays(variables, cut, library='np')
+        phys = f.arrays(variables, namedecode="utf-8")
+        evt_select = (phys['met_pt']<150) & (phys['max_SV_ntracks']>0)
+        for v in phys:
+          phys[v] = np.array(phys[v][evt_select])
         matrix = np.array([phys[v] for v in mlvar])
         #matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
         m = zeropadding(matrix, No)
@@ -260,58 +366,25 @@ def getRmatrix_dR2(jets):
 
 # In[7]:
 
+def makehist(data,weight,var):
+    assert(var in plot_setting)
+    assert(var in plot_vars_titles)
+    label = plot_vars_titles[var]
+    setting = plot_setting[var]
+    h = ROOT.TH1F(label[0],";".join(label),setting['bins'],setting['range'][0],setting['range'][1])
+    for i in range(len(data)):
+      h.Fill(data[i],weight[i])
+    return h
 
-def makehist(data, weight, label, name, **kwargs):
-    plt.hist(data,weights=weight, **kwargs)
-    plt.yscale('log')
-    plt.title(label[0]+'_'+name)
-    plt.xlabel(label[1])
-    plt.ylabel(label[2])
-    plt.savefig(save_plot_path+label[0]+name+'.png')
-    plt.close()
+def plotcategory(f,dirname,vars_name,data,weight):
+    f.cd()
+    f.mkdir(dirname)
+    f.cd(dirname)
+    #hists = []
+    for v in vars_name:
+      hist = makehist(data[v], weight[v], v)
+      hist.Write()
     return
-
-def comparehists(datas, weight, legends, label, density, name, **kwargs):
-    for i in range(len(datas)):
-        plt.hist(datas[i],weights=weight[i], label=legends[i], alpha=0.5, density=density, **kwargs)
-    plt.title(label[0])
-    plt.xlabel(label[1])
-    plt.ylabel(label[2])
-    plt.legend(loc='best')
-    plt.savefig(save_plot_path+label[0]+name+'.png')
-    plt.close()
-    return 
-
-def getDivide(a, b, epsilon=1e-08):
-    '''
-    substitude 0 in a and b with epsilon to avoid nan and inf
-    '''
-    tempa = a
-    tempb = b
-    tempa[tempa==0] = epsilon
-    tempb[tempb==0] = epsilon
-    return np.divide(tempa,tempb)
-
-def comparehistswithratio(datas, weight, legends, label, rationame, density, name, **kwargs):
-    assert(len(datas)==2)
-    fig, axs = plt.subplots(2,1,figsize=(6,6), gridspec_kw={'height_ratios': [3, 1]})
-    plt.axes(axs[0])
-    p0 = plt.hist(datas[0],weights=weight[0], label=legends[0], alpha=0.5, density=density, **kwargs)
-    p1 = plt.hist(datas[1],weights=weight[1], label=legends[1], alpha=0.5, density=density, **kwargs)
-    plt.title(label[0])
-    plt.ylabel(label[2])
-    plt.legend(loc='best')
-    plt.axes(axs[1], sharex=axs[0])
-    ratiowidth = p0[1][1]-p0[1][0]
-    ratiox = p0[1][:len(p0[1])-1]+ratiowidth/2.0
-    plt.bar(ratiox,getDivide(p0[0],p1[0]),width=ratiowidth,alpha=0.5)
-    plt.plot([p1[1][0], p1[1][-1]], [1, 1], color='k', linestyle='--', linewidth=1)
-    plt.ylim([0,2])
-    plt.xlabel(label[1])
-    plt.ylabel(rationame)
-    plt.savefig(save_plot_path+label[0]+name+'.png')
-    plt.close()
-    return 
 
 def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
     weights = GetNormWeight(bkg_fns, int_lumi=41521.0)
@@ -337,108 +410,6 @@ def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
     #compare.show()
     #return compare
 
-plot_vars_titles = {
-    'met_pt':['MET','MET (GeV)','# events'], 
-    'nsv':['nSV','nSV','# events'], 
-    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
-    'MLScore':['MLScore','MLScore','# events'],
-    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
-    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
-    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
-    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
-    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
-    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
-    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
-    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
-    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
-    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
-    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
-    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
-    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
-    'jet_eta':['jet_eta','jet eta','# events'],
-    'jet_phi':['jet_phi','jet phi','# events'],
-    'tk_pt':['tk_pt','track pT (GeV)','# events'],
-    'tk_eta':['tk_eta','track eta','# events'],
-    'tk_phi':['tk_phi','track phi','# events'],
-    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
-    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
-    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
-    'tk_dz':['tk_dz','track dz (cm)','# events'],
-    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
-    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
-
-}
-
-# variables that each event has only one value
-plot_vars_single = {
-    'met_pt':['MET','MET (GeV)','# events'], 
-    'nsv':['nSV','nSV','# events'], 
-    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
-    'MLScore':['MLScore','MLScore','# events'],
-}
-
-# variables that each event has possibly more than one value
-plot_vars_multi = {
-    'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
-    'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
-    'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
-    'jet_pt':['jet_pt','jet pT (GeV)','# events'],
-    'jet_eta':['jet_eta','jet eta','# events'],
-    'jet_phi':['jet_phi','jet phi','# events'],
-    'tk_pt':['tk_pt','track pT (GeV)','# events'],
-    'tk_eta':['tk_eta','track eta','# events'],
-    'tk_phi':['tk_phi','track phi','# events'],
-    'tk_dxybs':['tk_dxybs','track dxybs (cm)','# events'],
-    'tk_dxybs_sig':['tk_dxybs_sig','track nsigma(dxybs)','# events'],
-    'tk_dxybs_err':['tk_dxybs_err','track err(dxybs) (cm)','# events'],
-    'tk_dz':['tk_dz','track dz (cm)','# events'],
-    'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
-    'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
-}
-
-# variables that each event has multiple arrays
-plot_vars_nestedarray = {
-    'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
-    'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
-    'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
-    'vtx_tk_dxy':['vtx_tk_dxy','all SV tracks dxybs (cm)','# events'],
-    'vtx_tk_dxy_err':['vtx_tk_dxy_err','all SV tracks err(dxybs) (cm)','# events'],
-    'vtx_tk_nsigmadxy':['vtx_tk_nsigmadxy','all SV tracks nsigma(dxybs)','# events'],
-    'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
-    'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
-    'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
-}
-
-plot_setting = {
-    'met_pt': {'range':(0,150), 'bins':60},
-    'nsv': {'range':(0,10), 'bins':10},
-    'max_SV_ntracks': {'range':(0,40), 'bins':40},
-    'MLScore': {'range':(0,1), 'bins':100},
-    'vtx_ntk': {'range':(0,40), 'bins':40},
-    'vtx_dBV': {'range':(0,0.4), 'bins':100},
-    'vtx_dBVerr': {'range':(0,0.005), 'bins':50},
-    'vtx_tk_pt': {'range':(0,200), 'bins':100},
-    'vtx_tk_eta': {'range':(-4,4), 'bins':50},
-    'vtx_tk_phi': {'range':(-3.2,3.2), 'bins':64},
-    'vtx_tk_dxy': {'range':(0,0.5), 'bins':50},
-    'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':50},
-    'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':100},
-    'vtx_tk_dz': {'range':(0,20), 'bins':50},
-    'vtx_tk_dz_err': {'range':(0,0.15), 'bins':100},
-    'vtx_tk_nsigmadz': {'range':(0,3000), 'bins':100},
-    'jet_pt': {'range':(0,500), 'bins':50},
-    'jet_eta': {'range':(-4,4), 'bins':50},
-    'jet_phi': {'range':(-3.2,3.2), 'bins':64},
-    'tk_pt': {'range':(0,500), 'bins':200},
-    'tk_eta': {'range':(-4,4), 'bins':50},
-    'tk_phi': {'range':(-3.2,3.2), 'bins':64},
-    'tk_dxybs': {'range':(-0.5,0.5), 'bins':100},
-    'tk_dxybs_sig': {'range':(-40,40), 'bins':100},
-    'tk_dxybs_err': {'range':(0,0.06), 'bins':50},
-    'tk_dz': {'range':(-15,15), 'bins':50},
-    'tk_dz_sig': {'range':(-3000,3000), 'bins':100},
-    'tk_dz_err': {'range':(0,0.1), 'bins':50},
-}
 
 def getPlotData(phys_vars, vars_name, idx, fns):
     '''
@@ -502,7 +473,7 @@ def getPlotData(phys_vars, vars_name, idx, fns):
             w_extended = []
             var_flattern = []
             for ievt in range(len(w)):
-                var_ievt_array = np.concatenate(var[ievt].tolist(), axis=None)
+                var_ievt_array = np.concatenate(var[ievt], axis=None)
                 w_extended.append([w[ievt]]*len(var_ievt_array))
                 var_flattern.append(var_ievt_array)
             w_extended = np.concatenate(w_extended)
@@ -518,22 +489,6 @@ def getPlotData(phys_vars, vars_name, idx, fns):
         plot_w[v] = np.concatenate(plot_w[v], axis=None)
     
     return plot_data, plot_w
-
-def plotWithIdx(phys_vars, idx, name, fns):
-    
-    vars_name = [
-      'met_pt','nsv','max_SV_ntracks','MLScore',
-      'vtx_ntk','vtx_dBV','vtx_dBVerr',
-      'vtx_tk_pt','vtx_tk_eta','vtx_tk_nsigmadxy'
-                ]
-    data, weight = getPlotData(phys_vars, vars_name, idx, fns)
-    for v in vars_name:
-      if v in plot_setting:
-          makehist(data[v], weight[v], plot_vars_titles[v], name, **plot_setting[v])
-      else:
-          makehist(data[v], weight[v], plot_vars_titles[v], name)
-
-    
 
 def main():
     fns = [
@@ -553,8 +508,9 @@ def main():
       'zjetstonunuht0800_2017', 
       'zjetstonunuht1200_2017', 
       'zjetstonunuht2500_2017', 
-      'ttbar_2017'
+      'ttbar_2017',
     ]
+    fbkg = ROOT.TFile("background_lowMET.root","RECREATE")
     MLscore_threshold = 0.4
     ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
     ML_outputs = calcMLscore(ML_inputs, ML_inputs_ori, model_path=m_path)
@@ -562,6 +518,7 @@ def main():
         phys_vars[i]['MLScore'] = ML_outputs[i]
     idx_highML = []
     idx_lowML = []
+    idx_all = []
     ntk_idx = {
       '3trk':[],
       '4trk':[],
@@ -572,6 +529,8 @@ def main():
         idx_highML.append(np.reshape(highML, len(highML)))
         lowML = out<=MLscore_threshold
         idx_lowML.append(np.reshape(lowML, len(lowML)))
+        allML = np.array([True]*len(lowML))
+        idx_all.append(allML)
 
     for i in range(len(fns)):
         max_ntk = phys_vars[i]['max_SV_ntracks']
@@ -591,13 +550,10 @@ def main():
                 ]
     data_highML, weight_highML = getPlotData(phys_vars, vars_name, idx_highML, fns)
     data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
-    for v in vars_name:
-      if v in plot_setting:
-          #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True, **plot_setting[v])
-          comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare', log=True, **plot_setting[v])
-      else:
-          #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True)
-          comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare', log=True)
+    data_all, weight_all = getPlotData(phys_vars, vars_name, idx_all, fns)
+    plotcategory(fbkg,"highML_inclusive",vars_name,data_highML,weight_highML)
+    plotcategory(fbkg,"lowML_inclusive",vars_name,data_lowML,weight_lowML)
+    plotcategory(fbkg,"allML_inclusive",vars_name,data_all,weight_all)
 
     for intk in ntk_idx:
       pick_idx_high = []
@@ -607,14 +563,10 @@ def main():
         pick_idx_low.append(idx_lowML[iidx] & ntk_idx[intk][iidx])
       data_highML, weight_highML = getPlotData(phys_vars, vars_name, pick_idx_high, fns)
       data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, pick_idx_low, fns)
-      for v in vars_name:
-        if v in plot_setting:
-            #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True, **plot_setting[v])
-            comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare'+intk, log=True, **plot_setting[v])
-        else:
-            #comparehists([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], True, '_high_low_ML_compare', log=True)
-            comparehistswithratio([data_highML[v], data_lowML[v]], [weight_highML[v], weight_lowML[v]], ['high MLscore', 'low MLscore'], plot_vars_titles[v], 'high/low', True, '_high_low_ML_compare'+intk, log=True)
+      plotcategory(fbkg,"highML_"+intk,vars_name,data_highML,weight_highML)
+      plotcategory(fbkg,"lowML_"+intk,vars_name,data_lowML,weight_lowML)
 
+    fbkg.Close()
 
     # print number of events in each region
     weights = GetNormWeight(fns, int_lumi=41521.0)
@@ -646,8 +598,6 @@ def main():
         print("Region {}: {} +- {}".format(region_names[iregion],total_sum[iregion],np.sqrt(total_var[iregion])))
     
 
-    #plotWithIdx(phys_vars, idx_highML, 'highML', fns)
-    #plotWithIdx(phys_vars, idx_lowML, 'lowML', fns)
     #sig_fns = ['mfv_splitSUSY_tau000001000um_M1400_1200_2017']
     sig_fns = ['mfv_splitSUSY_tau000000000um_M2000_1800_2017',
                'mfv_splitSUSY_tau000000000um_M2400_2300_2017',
@@ -666,7 +616,7 @@ def main():
     ML_outputs_sig = calcMLscore(MLinputs_sig, MLinputs_sig_ori, model_path=m_path)
     for i in range(len(sig_fns)):
         phys_vars_sig[i]['MLScore'] = ML_outputs_sig[i]
-    MLoutput(phys_vars_sig, sig_fns, phys_vars, fns)
+    #MLoutput(phys_vars_sig, sig_fns, phys_vars, fns)
 
     weights = GetNormWeight(sig_fns, int_lumi=41521.0)
     # total_sum/var = [A,B,C,D] representing regions

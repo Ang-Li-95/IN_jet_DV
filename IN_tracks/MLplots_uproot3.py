@@ -93,7 +93,7 @@ def GetNevts(fns):
     nevents = []
     for fn in fns:
         f = uproot.open(fn_dir+fn+'.root')
-        nevt = f['mfvWeight/h_sums'].values()[f['mfvWeight/h_sums'].axis().labels().index('sum_nevents_total')]
+        nevt = f['mfvWeight/h_sums'].values[f['mfvWeight/h_sums'].xlabels.index('sum_nevents_total')]
         nevents.append(nevt)
     return nevents
 
@@ -115,7 +115,10 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
         if len(f['evt'].array())==0:
           print( "no events!!!")
           continue
-        phys = f.arrays(variables, cut, library='np')
+        phys = f.arrays(variables, namedecode="utf-8")
+        evt_select = (phys['met_pt']<150) & (phys['max_SV_ntracks']>0)
+        for v in phys:
+          phys[v] = np.array(phys[v][evt_select])
         matrix = np.array([phys[v] for v in mlvar])
         #matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
         m = zeropadding(matrix, No)
@@ -502,7 +505,7 @@ def getPlotData(phys_vars, vars_name, idx, fns):
             w_extended = []
             var_flattern = []
             for ievt in range(len(w)):
-                var_ievt_array = np.concatenate(var[ievt].tolist(), axis=None)
+                var_ievt_array = np.concatenate(var[ievt], axis=None)
                 w_extended.append([w[ievt]]*len(var_ievt_array))
                 var_flattern.append(var_ievt_array)
             w_extended = np.concatenate(w_extended)

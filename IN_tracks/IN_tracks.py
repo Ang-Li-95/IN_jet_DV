@@ -23,7 +23,7 @@ Nr = No*(No-1)
 Dp = 20
 Dr = 1
 De = 20
-lambda_dcorr = 0
+lambda_dcorr = 0.01
 lambda_param = 0.0005
 lambda_dcorr_met = 0
 lr = 0.0005
@@ -575,7 +575,7 @@ writer=tf.summary.FileWriter('./')
 
 sess=tf.InteractiveSession()
 tf.global_variables_initializer().run()
-batch_num = 512
+batch_num = 1024
 if use_dR:
     Rr_train, Rs_train, Ra_train = getRmatrix_dR2(train[4][:,1:3,:])
     Rr_val, Rs_val, Ra_val = getRmatrix_dR2(val[4][:,1:3,:])
@@ -584,7 +584,7 @@ else:
     Rr_val, Rs_val, Ra_val = getRmatrix(batch_num)
 
 # training
-num_epochs=50
+num_epochs=100
 history = []
 history_val = []
 h_bce = []
@@ -613,8 +613,9 @@ for i in range(num_epochs):
           batch_Rs = Rs_train
           batch_Ra = Ra_train
 
-        #batch_weight = (batch_label-1)*(-1)
-        batch_weight = np.ones(batch_label.shape)
+        batch_weight = (batch_label-1)*(-1)
+        batch_weight[batch_weight==0] = 1e-08
+        #batch_weight = np.ones(batch_label.shape)
 
         l_train,_,bce_train,dcorr_train,dcorr_met_train=sess.run([loss,trainer,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
         loss_train+=l_train
@@ -655,8 +656,9 @@ for i in range(num_epochs):
           batch_Rs = Rs_val
           batch_Ra = Ra_val
 
-        #batch_weight = (batch_label-1)*(-1)
-        batch_weight = np.ones(batch_label.shape)
+        batch_weight = (batch_label-1)*(-1)
+        batch_weight[batch_weight==0] = 1e-08
+        #batch_weight = np.ones(batch_label.shape)
 
         l_val,_,bce_val,dcorr_val,dcorr_met_val=sess.run([loss,out_sigmoid,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
         loss_val+=l_val
@@ -699,6 +701,7 @@ saver = tf.train.Saver(max_to_keep=20)
 saver.save(sess,"test_model")
 pred = []
 truth = []
+ntk = []
 with tf.Session() as newsess:
     newsaver = tf.train.import_meta_graph("test_model.meta")
     newsaver.restore(newsess, tf.train.latest_checkpoint('./'))
@@ -727,15 +730,18 @@ with tf.Session() as newsess:
           batch_Rs = Rs_test
           batch_Ra = Ra_test
 
-        #batch_weight = (batch_label-1)*(-1)
-        batch_weight = np.ones(batch_label.shape)
+        batch_weight = (batch_label-1)*(-1)
+        batch_weight[batch_weight==0] = 1e-08
+        #batch_weight = np.ones(batch_label.shape)
 
         b = newsess.run([out_sigmoid],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra})
         pred.append(b[0])
         truth.append(batch_label)
+        ntk.append(batch_ntk)
 
 pred = np.concatenate(pred,axis=None)
 truth = np.concatenate(truth,axis=None)
+ntk = np.concatenate(ntk,axis=None)
 #print("number of test: {}".format(len(test[0])))
 #print(pred.shape)
 #print(truth.shape)
@@ -761,13 +767,13 @@ plt.close()
 #t_B = test[2][(b<0.4) & (test[1]>=5)]
 #t_C = test[2][(b>0.4) & (test[1]<5) & (test[1]>2)]
 #t_D = test[2][(b<0.4) & (test[1]<5) & (test[1]>2)]
-#t_A = truth[(pred>0.4) & (test[1]>=5)]
-#t_B = truth[(pred<0.4) & (test[1]>=5)]
-#t_C = truth[(pred>0.4) & (test[1]<5) & (test[1]>2)]
-#t_D = truth[(pred<0.4) & (test[1]<5) & (test[1]>2)]
-#
-#print("region A: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_A), np.sqrt(np.count_nonzero(t_A)), len(t_A)-np.count_nonzero(t_A), np.sqrt(len(t_A)-np.count_nonzero(t_A))))
-#print("region B: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_B), np.sqrt(np.count_nonzero(t_B)), len(t_B)-np.count_nonzero(t_B), np.sqrt(len(t_B)-np.count_nonzero(t_B))))
-#print("region C: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_C), np.sqrt(np.count_nonzero(t_C)), len(t_C)-np.count_nonzero(t_C), np.sqrt(len(t_C)-np.count_nonzero(t_C))))
-#print("region D: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_D), np.sqrt(np.count_nonzero(t_D)), len(t_D)-np.count_nonzero(t_D), np.sqrt(len(t_D)-np.count_nonzero(t_D))))
+t_A = truth[(pred>0.4) & (ntk>=5)]
+t_B = truth[(pred<0.4) & (ntk>=5)]
+t_C = truth[(pred>0.4) & (ntk<5) & (ntk>2)]
+t_D = truth[(pred<0.4) & (ntk<5) & (ntk>2)]
+
+print("region A: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_A), np.sqrt(np.count_nonzero(t_A)), len(t_A)-np.count_nonzero(t_A), np.sqrt(len(t_A)-np.count_nonzero(t_A))))
+print("region B: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_B), np.sqrt(np.count_nonzero(t_B)), len(t_B)-np.count_nonzero(t_B), np.sqrt(len(t_B)-np.count_nonzero(t_B))))
+print("region C: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_C), np.sqrt(np.count_nonzero(t_C)), len(t_C)-np.count_nonzero(t_C), np.sqrt(len(t_C)-np.count_nonzero(t_C))))
+print("region D: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_D), np.sqrt(np.count_nonzero(t_D)), len(t_D)-np.count_nonzero(t_D), np.sqrt(len(t_D)-np.count_nonzero(t_D))))
 
