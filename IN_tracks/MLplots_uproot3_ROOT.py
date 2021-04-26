@@ -8,6 +8,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import argparse
 import sys
 import copy
@@ -21,6 +23,7 @@ tf.disable_v2_behavior()
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 No=50
 Nr = No*(No-1)
@@ -490,27 +493,8 @@ def getPlotData(phys_vars, vars_name, idx, fns):
     
     return plot_data, plot_w
 
-def main():
-    fns = [
-      'qcdht0200_2017',
-      'qcdht0300_2017',
-      'qcdht0500_2017',
-      'qcdht0700_2017', 
-      'qcdht1000_2017', 
-      'qcdht1500_2017', 
-      'qcdht2000_2017', 
-      'wjetstolnu_2017', 
-      'wjetstolnuext_2017', 
-      'zjetstonunuht0100_2017', 
-      'zjetstonunuht0200_2017', 
-      'zjetstonunuht0400_2017', 
-      'zjetstonunuht0600_2017', 
-      'zjetstonunuht0800_2017', 
-      'zjetstonunuht1200_2017', 
-      'zjetstonunuht2500_2017', 
-      'ttbar_2017',
-    ]
-    fbkg = ROOT.TFile("background_lowMET.root","RECREATE")
+def makeplotfile(fns,newfn,isSignal):
+    fnew = ROOT.TFile(newfn+".root","RECREATE")
     MLscore_threshold = 0.4
     ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
     ML_outputs = calcMLscore(ML_inputs, ML_inputs_ori, model_path=m_path)
@@ -551,9 +535,9 @@ def main():
     data_highML, weight_highML = getPlotData(phys_vars, vars_name, idx_highML, fns)
     data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
     data_all, weight_all = getPlotData(phys_vars, vars_name, idx_all, fns)
-    plotcategory(fbkg,"highML_inclusive",vars_name,data_highML,weight_highML)
-    plotcategory(fbkg,"lowML_inclusive",vars_name,data_lowML,weight_lowML)
-    plotcategory(fbkg,"allML_inclusive",vars_name,data_all,weight_all)
+    plotcategory(fnew,"highML_inclusive",vars_name,data_highML,weight_highML)
+    plotcategory(fnew,"lowML_inclusive",vars_name,data_lowML,weight_lowML)
+    plotcategory(fnew,"allML_inclusive",vars_name,data_all,weight_all)
 
     for intk in ntk_idx:
       pick_idx_high = []
@@ -563,10 +547,10 @@ def main():
         pick_idx_low.append(idx_lowML[iidx] & ntk_idx[intk][iidx])
       data_highML, weight_highML = getPlotData(phys_vars, vars_name, pick_idx_high, fns)
       data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, pick_idx_low, fns)
-      plotcategory(fbkg,"highML_"+intk,vars_name,data_highML,weight_highML)
-      plotcategory(fbkg,"lowML_"+intk,vars_name,data_lowML,weight_lowML)
+      plotcategory(fnew,"highML_"+intk,vars_name,data_highML,weight_highML)
+      plotcategory(fnew,"lowML_"+intk,vars_name,data_lowML,weight_lowML)
 
-    fbkg.Close()
+    fnew.Close()
 
     # print number of events in each region
     weights = GetNormWeight(fns, int_lumi=41521.0)
@@ -593,12 +577,35 @@ def main():
             total_var[iregion] += nevt_variance_region
             print("sample {} in region {} : {} +- {}".format(fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region)))
             
-    print("Summing together: ")
-    for iregion in range(len(region_names)):
-        print("Region {}: {} +- {}".format(region_names[iregion],total_sum[iregion],np.sqrt(total_var[iregion])))
+    if not isSignal:
+      print("Summing together: ")
+      for iregion in range(len(region_names)):
+          print("Region {}: {} +- {}".format(region_names[iregion],total_sum[iregion],np.sqrt(total_var[iregion])))
     
 
-    #sig_fns = ['mfv_splitSUSY_tau000001000um_M1400_1200_2017']
+
+def main():
+    fns = [
+      'qcdht0200_2017',
+      'qcdht0300_2017',
+      'qcdht0500_2017',
+      'qcdht0700_2017', 
+      'qcdht1000_2017', 
+      'qcdht1500_2017', 
+      'qcdht2000_2017', 
+      'wjetstolnu_2017', 
+      'wjetstolnuext_2017', 
+      'zjetstonunuht0100_2017', 
+      'zjetstonunuht0200_2017', 
+      'zjetstonunuht0400_2017', 
+      'zjetstonunuht0600_2017', 
+      'zjetstonunuht0800_2017', 
+      'zjetstonunuht1200_2017', 
+      'zjetstonunuht2500_2017', 
+      'ttbar_2017',
+    ]
+    #makeplotfile(fns,"background_lowMET",False)
+
     sig_fns = ['mfv_splitSUSY_tau000000000um_M2000_1800_2017',
                'mfv_splitSUSY_tau000000000um_M2400_2300_2017',
                'mfv_splitSUSY_tau000000300um_M2000_1800_2017',
@@ -612,66 +619,13 @@ def main():
                'mfv_splitSUSY_tau000010000um_M1200_1100_2017',
                'mfv_splitSUSY_tau000010000um_M1400_1200_2017',
               ]
-    MLinputs_sig, MLinputs_sig_ori, phys_vars_sig = GetData(sig_fns)
-    ML_outputs_sig = calcMLscore(MLinputs_sig, MLinputs_sig_ori, model_path=m_path)
-    for i in range(len(sig_fns)):
-        phys_vars_sig[i]['MLScore'] = ML_outputs_sig[i]
-    #MLoutput(phys_vars_sig, sig_fns, phys_vars, fns)
-
-    weights = GetNormWeight(sig_fns, int_lumi=41521.0)
-    # total_sum/var = [A,B,C,D] representing regions
-    region_names = ['A', 'B', 'C', 'D']
-    #total_sum = [0,0,0,0]
-    #total_var = [0,0,0,0]
-    for i in range(len(sig_fns)):
-        w = phys_vars_sig[i]['weight']
-        cut_var_array = phys_vars_sig[i][cut_var]
-        highML_sig = ML_outputs_sig[i]>MLscore_threshold
-        highML_sig = np.reshape(highML_sig, len(highML_sig))
-        lowML_sig = ML_outputs_sig[i]<=MLscore_threshold
-        lowML_sig = np.reshape(lowML_sig, len(lowML_sig))
-        cut_region = [
-            (highML_sig) & (cut_var_array>=cut_val), # A
-            (lowML_sig) & (cut_var_array>=cut_val),  # B
-            (highML_sig) & (cut_var_array<cut_val),  # C
-            (lowML_sig) & (cut_var_array<cut_val),   # D
-        ]
-        for iregion in range(len(cut_region)):
-            w_region = w[cut_region[iregion]]
-            nevt_region = np.sum(w_region)*weights[i]
-            nevt_variance_region = nevt_region*weights[i]
-            #total_sum[iregion] += nevt_region
-            #total_var[iregion] += nevt_variance_region
-            print("sample {} in region {} : {} +- {}".format(sig_fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region)))
-            
+    for sig_fn in sig_fns:
+      makeplotfile([sig_fn],sig_fn+"lowMET",True)
 
 
 # In[6]:
 
 
 main()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
 
 
