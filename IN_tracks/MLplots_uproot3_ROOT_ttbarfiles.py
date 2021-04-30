@@ -31,11 +31,16 @@ Nr = No*(No-1)
 Ds=7
 Dr=1
 use_dR = False
-fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETothogonalVTXVkeeptk_v1METm/'
+#fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETothogonalVTXVkeeptk_v1METm/'
+fn_dir = 'root://cmseos.fnal.gov//store/user/ali/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/JetTreelowMETothogonalVTXVkeeptk_v1METm/210427_221010/0000/'
+fn_idx = ''
+if len(sys.argv)>1:
+  fn_idx = sys.argv[1]
 m_path = './20210415_0/'
 #save_plot_path='./20210411_0/'
 save_plot_path='./'
 normalize_factors = {}
+# orders: ['vtx_x', 'vtx_y', 'vtx_z', 'vtx_ntrack', 'vtx_dBV', 'vtx_err_dBV', 'vtx_px', 'vtx_py', 'vtx_pz', 'vtx_E']
 
 mlvar = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
 
@@ -164,6 +169,7 @@ def GetXsec(fns):
         "zjetstonunuht1200_2017": 0.3419,
         "zjetstonunuht2500_2017": 0.005146,
         "ttbar_2017": 832,
+        "jettree": 832,
         "mfv_splitSUSY_tau000000000um_M2000_1800_2017": 1e-03,
         "mfv_splitSUSY_tau000000000um_M2000_1900_2017": 1e-03,
         'mfv_splitSUSY_tau000000000um_M2400_2300_2017': 1e-03,
@@ -188,7 +194,8 @@ def GetXsec(fns):
 
 def GetNormWeight(fns, int_lumi=1):
     xsecs = GetXsec(fns)
-    nevents = GetNevts(fns)
+    nevents = [1.5392681e+08]*len(xsecs)
+    #nevents = GetNevts(fns)
     assert(len(xsecs)==len(nevents))
     normweights = []
     for i in range(len(xsecs)):
@@ -198,7 +205,7 @@ def GetNormWeight(fns, int_lumi=1):
 def GetNevts(fns):
     nevents = []
     for fn in fns:
-        f = uproot.open(fn_dir+fn+'.root')
+        f = uproot.open(fn_dir+fn+fn_idx+'.root')
         nevt = f['mfvWeight/h_sums'].values[f['mfvWeight/h_sums'].xlabels.index('sum_nevents_total')]
         nevents.append(nevt)
         del f
@@ -217,8 +224,8 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
                  'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz']
     for fn in fns:
         #print(fn)
-        print("opening {}...".format(fn_dir+fn+'.root'))
-        f = uproot.open(fn_dir+fn+'.root')
+        print("opening {}...".format(fn_dir+fn+fn_idx+'.root'))
+        f = uproot.open(fn_dir+fn+fn_idx+'.root')
         f = f["mfvJetTreer/tree_DV"]
         if len(f['evt'].array())==0:
           print( "no events!!!")
@@ -617,26 +624,28 @@ def makeplotfile(fns,newfn,isSignal):
 
 def main():
     fns = [
-      'qcdht0200_2017',
-      'qcdht0300_2017',
-      'qcdht0500_2017',
-      'qcdht0700_2017', 
-      'qcdht1000_2017', 
-      'qcdht1500_2017', 
-      'qcdht2000_2017', 
-      'wjetstolnu_2017', 
-      'wjetstolnuext_2017', 
-      'zjetstonunuht0100_2017', 
-      'zjetstonunuht0200_2017', 
-      'zjetstonunuht0400_2017', 
-      'zjetstonunuht0600_2017', 
-      'zjetstonunuht0800_2017', 
-      'zjetstonunuht1200_2017', 
-      'zjetstonunuht2500_2017', 
-      'ttbar_2017',
+      #'qcdht0200_2017',
+      #'qcdht0300_2017',
+      #'qcdht0500_2017',
+      #'qcdht0700_2017', 
+      #'qcdht1000_2017', 
+      #'qcdht1500_2017', 
+      #'qcdht2000_2017', 
+      #'wjetstolnu_2017', 
+      #'wjetstolnuext_2017', 
+      #'zjetstonunuht0100_2017', 
+      #'zjetstonunuht0200_2017', 
+      #'zjetstonunuht0400_2017', 
+      #'zjetstonunuht0600_2017', 
+      #'zjetstonunuht0800_2017', 
+      #'zjetstonunuht1200_2017', 
+      #'zjetstonunuht2500_2017', 
+      #'ttbar_2017',
+      'jettree', # temproraily for ttbar
     ]
     if doBackground:
-      makeplotfile(fns,"background_lowMET",False)
+      #makeplotfile(fns,"background_lowMET",False)
+      makeplotfile(fns,"ttbar"+fn_idx,False)
 
     sig_fns = ['mfv_splitSUSY_tau000000000um_M2000_1800_2017',
                'mfv_splitSUSY_tau000000000um_M2400_2300_2017',
