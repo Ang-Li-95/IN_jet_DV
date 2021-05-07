@@ -31,7 +31,8 @@ Nr = No*(No-1)
 Ds=7
 Dr=1
 use_dR = False
-fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETothogonalVTXVkeeptk_v1METm/'
+#fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETothogonalVTXVkeeptk_v1METm/'
+fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreelowMETwmassVkeeptk_v1METm/'
 m_path = './20210415_0/'
 #save_plot_path='./20210411_0/'
 save_plot_path='./'
@@ -49,6 +50,9 @@ plot_vars_titles = {
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
     'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_mass_track':['vtx_mass_track','SV tracks-only mass (GeV)','# events'],
+    'vtx_mass_jet':['vtx_mass_jet','SV jets-by-ntracks -only mass (GeV)','# events'],
+    'vtx_mass_trackjet':['vtx_mass_trackjet','SV tracks-plus-jets-by-ntracks mass (GeV)','# events'],
     'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
     'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
     'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
@@ -86,6 +90,9 @@ plot_vars_multi = {
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
     'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
+    'vtx_mass_track':['vtx_mass_track','SV tracks-only mass (GeV)','# events'],
+    'vtx_mass_jet':['vtx_mass_jet','SV jets-by-ntracks -only mass (GeV)','# events'],
+    'vtx_mass_trackjet':['vtx_mass_trackjet','SV tracks-plus-jets-by-ntracks mass (GeV)','# events'],
     'jet_pt':['jet_pt','jet pT (GeV)','# events'],
     'jet_eta':['jet_eta','jet eta','# events'],
     'jet_phi':['jet_phi','jet phi','# events'],
@@ -121,6 +128,9 @@ plot_setting = {
     'vtx_ntk': {'range':(0,40), 'bins':40},
     'vtx_dBV': {'range':(0,0.4), 'bins':100},
     'vtx_dBVerr': {'range':(0,0.05), 'bins':100},
+    'vtx_mass_track': {'range':(0,200), 'bins':100},
+    'vtx_mass_jet': {'range':(0,500), 'bins':100},
+    'vtx_mass_trackjet': {'range':(0,500), 'bins':100},
     'vtx_tk_pt': {'range':(0,200), 'bins':100},
     'vtx_tk_eta': {'range':(-4,4), 'bins':50},
     'vtx_tk_phi': {'range':(-3.2,3.2), 'bins':64},
@@ -212,7 +222,7 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
                  'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
                  'tk_pt', 'tk_eta', 'tk_phi', 
                  'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err', 
-                 'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 
+                 'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 'vtx_mass_track', 'vtx_mass_jet', 'vtx_mass_trackjet',
                  'vtx_tk_pt', 'vtx_tk_eta', 'vtx_tk_phi', 
                  'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz']
     for fn in fns:
@@ -559,7 +569,7 @@ def makeplotfile(fns,newfn,isSignal):
     vars_name = [
       'met_pt','nsv','max_SV_ntracks','MLScore',
       'jet_pt', 'jet_eta', 'jet_phi',
-      'vtx_ntk','vtx_dBV','vtx_dBVerr',
+      'vtx_ntk','vtx_dBV','vtx_dBVerr', 'vtx_mass_track', 'vtx_mass_jet', 'vtx_mass_trackjet',
       'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err',
       'vtx_tk_pt','vtx_tk_eta','vtx_tk_phi', 'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz',
                 ]
