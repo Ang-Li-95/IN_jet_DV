@@ -14,11 +14,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import awkward as ak
 
+mlvar_tk = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
+mlvar_vtx = ['vtx_ntk', 'vtx_dBV', 'vtx_dBVerr']
+
 No = 50
-Ds = 7
+Ds = len(mlvar_tk)
 Nr = No*(No-1)
 Dp = 20
-Dv = 3
+Dv = len(mlvar_vtx)
 Dr = 1
 De = 20
 lambda_dcorr = 0.01
@@ -29,7 +32,7 @@ use_dR = False
 
 normalize_factors = {}
 
-fndir = 'root://cmseos.fnal.gov//store/user/ali/JetTreehighVkeeptk_v1METm/'
+fndir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeVkeeptk_v1METm/'
 
 
 # In[2]:
@@ -77,7 +80,7 @@ def GetNormWeight(fns, int_lumi=1):
     return normweights
 
 def GetNevts(f):
-    nevt = f['mfvWeight/h_sums'].values()[f['mfvWeight/h_sums'].axis().labels().index('sum_nevents_total')]
+    nevt = f['mfvWeight/h_sums'].values[f['mfvWeight/h_sums'].xlabels.index('sum_nevents_total')]
     return nevt
 
 def GetLoadFactor(fn,f,lumi):
@@ -104,11 +107,9 @@ def GetDataAndLabel(fns, split, isSignal, cut="(met_pt >= 150) & (max_SV_ntracks
         loadfactor = GetLoadFactor(fn, f, lumi)
         f = f["mfvJetTreer/tree_DV"]
         if len(f['evt'].array())==0:
-          print( "ne events!!!")
+          print( "no events!!!")
           continue
         variables = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig','met_pt','vtx_ntk', 'vtx_dBV', 'vtx_dBVerr']
-        mlvar_tk = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
-        mlvar_vtx = ['vtx_ntk', 'vtx_dBV', 'vtx_dBVerr']
         matrix = f.arrays(variables, namedecode="utf-8")
         # apply cuts
         evt_select = (matrix['met_pt']>=150) & (matrix['vtx_ntk']>2)
@@ -134,32 +135,36 @@ def GetDataAndLabel(fns, split, isSignal, cut="(met_pt >= 150) & (max_SV_ntracks
         # train
         m_tk = np.array([matrix[v][:train_idx] for v in mlvar_tk])
         m_vtx = np.array([matrix[v][:train_idx] for v in mlvar_vtx]).T
+        #m_vtx = np.reshape(m_vtx, m_vtx.shape+(1,))
         m = zeropadding(m_tk, No)
         if len(m)>0:
-            tk_train.append(m_tk)
+            tk_train.append(m)
             vtx_train.append(m_vtx)
-        tk_train = np.concatenate(tk_train)
-        vtx_train = np.concatenate(vtx_train)
         
         # val
         m_tk = np.array([matrix[v][train_idx+1:val_idx] for v in mlvar_tk])
         m_vtx = np.array([matrix[v][train_idx+1:val_idx] for v in mlvar_vtx]).T
+        #m_vtx = np.reshape(m_vtx, m_vtx.shape+(1,))
         m = zeropadding(m_tk, No)
         if len(m)>0:
-            tk_val.append(m_tk)
+            tk_val.append(m)
             vtx_val.append(m_vtx)
-        tk_val = np.concatenate(tk_val)
-        vtx_val = np.concatenate(vtx_val)
 
         # test
         m_tk = np.array([matrix[v][val_idx+1:nevt] for v in mlvar_tk])
         m_vtx = np.array([matrix[v][val_idx+1:nevt] for v in mlvar_vtx]).T
+        #m_vtx = np.reshape(m_vtx, m_vtx.shape+(1,))
         m = zeropadding(m_tk, No)
         if len(m)>0:
-            tk_test.append(m_tk)
+            tk_test.append(m)
             vtx_test.append(m_vtx)
-        tk_test = np.concatenate(tk_test)
-        vtx_test = np.concatenate(vtx_test)
+
+    tk_train = np.concatenate(tk_train)
+    vtx_train = np.concatenate(vtx_train)
+    tk_val = np.concatenate(tk_val)
+    vtx_val = np.concatenate(vtx_val)
+    tk_test = np.concatenate(tk_test)
+    vtx_test = np.concatenate(vtx_test)
 
     if not isSignal:
         label_train = np.zeros((vtx_train.shape[0], 1))
@@ -181,33 +186,33 @@ def importData(split, normalize=True,shuffle=True):
     '''
 
     fns_bkg = [
-        "qcdht0200_2017",
+        #"qcdht0200_2017",
         "qcdht0300_2017",
         "qcdht0500_2017",
-        "qcdht0700_2017",
-        "qcdht1000_2017",
-        "qcdht1500_2017",
-        "qcdht2000_2017",
-        "wjetstolnu_2017",
-        "wjetstolnuext_2017",
-        "zjetstonunuht0100_2017",
-        "zjetstonunuht0200_2017",
-        "zjetstonunuht0400_2017",
-        "zjetstonunuht0600_2017",
-        "zjetstonunuht0800_2017",
-        "zjetstonunuht1200_2017",
-        "zjetstonunuht2500_2017",
-        "ttbar_2017",
+        #"qcdht0700_2017",
+        #"qcdht1000_2017",
+        #"qcdht1500_2017",
+        #"qcdht2000_2017",
+        #"wjetstolnu_2017",
+        #"wjetstolnuext_2017",
+        #"zjetstonunuht0100_2017",
+        #"zjetstonunuht0200_2017",
+        #"zjetstonunuht0400_2017",
+        #"zjetstonunuht0600_2017",
+        #"zjetstonunuht0800_2017",
+        #"zjetstonunuht1200_2017",
+        #"zjetstonunuht2500_2017",
+        #"ttbar_2017",
     ]
     fns_signal = [
         "mfv_splitSUSY_tau000000000um_M2000_1800_2017",
-        "mfv_splitSUSY_tau000000000um_M2000_1900_2017",
-        "mfv_splitSUSY_tau000000300um_M2000_1800_2017",
-        "mfv_splitSUSY_tau000000300um_M2000_1900_2017",
-        "mfv_splitSUSY_tau000001000um_M2000_1800_2017",
-        "mfv_splitSUSY_tau000001000um_M2000_1900_2017",
-        "mfv_splitSUSY_tau000010000um_M2000_1800_2017",
-        "mfv_splitSUSY_tau000010000um_M2000_1900_2017",
+        #"mfv_splitSUSY_tau000000000um_M2000_1900_2017",
+        #"mfv_splitSUSY_tau000000300um_M2000_1800_2017",
+        #"mfv_splitSUSY_tau000000300um_M2000_1900_2017",
+        #"mfv_splitSUSY_tau000001000um_M2000_1800_2017",
+        #"mfv_splitSUSY_tau000001000um_M2000_1900_2017",
+        #"mfv_splitSUSY_tau000010000um_M2000_1800_2017",
+        #"mfv_splitSUSY_tau000010000um_M2000_1900_2017",
     ]
     train_sig, val_sig, test_sig = GetDataAndLabel(fns_signal, split, True)
     train_bkg, val_bkg, test_bkg = GetDataAndLabel(fns_bkg, split, False)
@@ -237,7 +242,7 @@ def importData(split, normalize=True,shuffle=True):
             data_test[i] = data_test[i][shuffler]
 
     if normalize:
-      for i in range(2):
+      for i in range(1):
         data_train[i] = normalizedata(data_train[i])
         data_val[i] = normalizedata(data_val[i])
         data_test[i] = normalizedata(data_test[i])
@@ -253,7 +258,7 @@ def zeropadding(matrix, l):
     m_mod = []
     for i in range(matrix.shape[1]):
         # transfer df to matrix for each event
-        m = np.array([matrix[:,i][v] for v in range(len(mlvar))])
+        m = np.array([matrix[:,i][v] for v in range(len(mlvar_tk))])
         sortedidx = np.argsort(m[0,:])[::-1]
         m = m[:,sortedidx]
         #m = np.array(df.loc[i].T)
@@ -271,6 +276,7 @@ def normalizedata(data):
     n_features_data = Ds
     
     for i in range(n_features_data):
+        print(data.shape)
         l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
         l = l[l!=0]
         median = l[int(len(l)*0.5)]
@@ -497,22 +503,23 @@ def phi_output_nd(P):
     w2 = tf.Variable(tf.random.truncated_normal([h_size, 1], stddev=0.1), name="out_w2", dtype=tf.float32)
     b2 = tf.Variable(tf.zeros([Dp,1]), name="out_b2", dtype=tf.float32)
     h2 = tf.nn.relu(tf.matmul(h1, w2)+b2)
-    h2 = tf.reshape(h2, [-1,1])
+    h2 = tf.reshape(h2, [-1,Dp])
     return h2
 
 def phi_vtx(T, vtx):
     '''
     phi_vtx: NN that add a 1d vtx information to previous output and output the final result
     '''
-    tkvtx = tf.concat([T,vtx], 0)
-    tkvtx = tf.nn.batch_normalization(tkvtx)
+    tkvtx = tf.concat([T,vtx], 1)
+    tkvtx = tf.nn.batch_normalization(tkvtx, 1, 1, 0, 1, 1e-12)
+    tkvtx = tf.reshape(tkvtx, [-1,1,Dp+Dv])
     h_size=100
     w1 = tf.Variable(tf.random.truncated_normal([Dp+Dv, h_size], stddev=0.1), name="vtx_w1", dtype=tf.float32)
-    b1 = tf.Variable(tf.zeros([h_size,1]), name="vtx_b1", dtype=tf.float32)
-    h1 = tf.nn.relu(tf.matmul(w1, tkvtx)+b1)
-    w2 = tf.Variable(tf.random.truncated_normal([1,h_size], stddev=0.1), name="vtx_w2", dtype=tf.float32)
+    b1 = tf.Variable(tf.zeros([1,h_size]), name="vtx_b1", dtype=tf.float32)
+    h1 = tf.nn.relu(tf.matmul(tkvtx, w1)+b1)
+    w2 = tf.Variable(tf.random.truncated_normal([h_size,1], stddev=0.1), name="vtx_w2", dtype=tf.float32)
     b2 = tf.Variable(tf.zeros([1,1]), name="vtx_b2", dtype=tf.float32)
-    h2 = tf.nn.relu(tf.matmul(w2, h1)+b2)
+    h2 = tf.nn.relu(tf.matmul(h1, w2)+b2)
     h2 = tf.reshape(h2, [-1,1])
     return h2
 
@@ -553,7 +560,7 @@ C = a(O,Rr,E)
 P = phi_O(C)
 
 #P = tf.reduce_sum(P, axis=2, keepdims=True)
-out_tk = phi_output(P)
+out_tk = phi_output_nd(P)
 out = phi_vtx(out_tk,vtx)
 out_sigmoid = tf.math.sigmoid(out, name="INscore")
 
@@ -567,9 +574,10 @@ loss_param = tf.nn.l2_loss(E)
 #loss = 0
 for i in params_list:
     loss_param+=tf.nn.l2_loss(i)
-dcorr = distance_corr(ntk_max, out_sigmoid, evtweight)
-dcorr_met = distance_corr(met, out_sigmoid, evtweight)
-loss = loss_bce+lambda_param*loss_param+lambda_dcorr*dcorr+lambda_dcorr_met*dcorr_met
+#dcorr = distance_corr(ntk_max, out_sigmoid, evtweight)
+#dcorr_met = distance_corr(met, out_sigmoid, evtweight)
+#loss = loss_bce+lambda_param*loss_param+lambda_dcorr*dcorr+lambda_dcorr_met*dcorr_met
+loss = loss_bce+lambda_param*loss_param
 optimizer = tf.train.AdamOptimizer(lr)
 trainer=optimizer.minimize(loss)
 
@@ -605,10 +613,9 @@ for i in range(num_epochs):
     l_dcorr_train = 0
     l_dcorr_met_train = 0
     for j in range(int(len(train[0])/batch_num)):
-        batch_data = train[0][j*batch_num:(j+1)*batch_num]
+        batch_tk = train[0][j*batch_num:(j+1)*batch_num]
+        batch_vtx = train[1][j*batch_num:(j+1)*batch_num]
         batch_label = train[2][j*batch_num:(j+1)*batch_num]
-        batch_ntk = train[1][j*batch_num:(j+1)*batch_num]
-        batch_met = train[3][j*batch_num:(j+1)*batch_num]
         if use_dR:
           batch_Rr = Rr_train[j*batch_num:(j+1)*batch_num]
           batch_Rs = Rs_train[j*batch_num:(j+1)*batch_num]
@@ -622,15 +629,11 @@ for i in range(num_epochs):
         batch_weight[batch_weight==0] = 1e-08
         #batch_weight = np.ones(batch_label.shape)
 
-        l_train,_,bce_train,dcorr_train,dcorr_met_train=sess.run([loss,trainer,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
+        l_train,_,bce_train=sess.run([loss,trainer,loss_bce],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,vtx:batch_vtx,label:batch_label})
         loss_train+=l_train
         l_bce_train+=bce_train
-        l_dcorr_train+=dcorr_train
-        l_dcorr_met_train+=dcorr_met_train
     history.append(loss_train)
     h_bce.append(l_bce_train)
-    h_dcorr.append(l_dcorr_train)
-    h_dcorr_met.append(l_dcorr_met_train)
 
     #shuffle data after each epoch
     train_idx = np.array(range(len(train[0])))
@@ -648,10 +651,9 @@ for i in range(num_epochs):
     l_dcorr_val = 0
     l_dcorr_met_val = 0
     for j in range(int(len(val[0])/batch_num)):
-        batch_data = val[0][j*batch_num:(j+1)*batch_num]
+        batch_tk = val[0][j*batch_num:(j+1)*batch_num]
+        batch_vtx = val[1][j*batch_num:(j+1)*batch_num]
         batch_label = val[2][j*batch_num:(j+1)*batch_num]
-        batch_ntk = val[1][j*batch_num:(j+1)*batch_num]
-        batch_met = val[3][j*batch_num:(j+1)*batch_num]
         if use_dR:
           batch_Rr = Rr_val[j*batch_num:(j+1)*batch_num]
           batch_Rs = Rs_val[j*batch_num:(j+1)*batch_num]
@@ -661,15 +663,9 @@ for i in range(num_epochs):
           batch_Rs = Rs_val
           batch_Ra = Ra_val
 
-        batch_weight = (batch_label-1)*(-1)
-        batch_weight[batch_weight==0] = 1e-08
-        #batch_weight = np.ones(batch_label.shape)
-
-        l_val,_,bce_val,dcorr_val,dcorr_met_val=sess.run([loss,out_sigmoid,loss_bce,dcorr,dcorr_met],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,met:batch_met,evtweight:batch_weight})
+        l_val,_,bce_val=sess.run([loss,out_sigmoid,loss_bce],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,vtx:batch_vtx,label:batch_label})
         loss_val+=l_val
         l_bce_val+=bce_val
-        l_dcorr_val+=dcorr_val
-        l_dcorr_met_val+=dcorr_met_val
         
     if loss_val < min_loss:
         min_loss = loss_val
@@ -677,8 +673,6 @@ for i in range(num_epochs):
         saver.save(sess,"test_model")
     history_val.append(loss_val)
     h_bce_val.append(l_bce_val)
-    h_dcorr_val.append(l_dcorr_val)
-    h_dcorr_met_val.append(l_dcorr_met_val)
     val_idx = np.array(range(len(val[0])))
     np.random.shuffle(val_idx)
 
@@ -691,10 +685,10 @@ for i in range(num_epochs):
       Ra_val = Ra_val[val_idx]
     
     print("Epoch {}:".format(i))
-    print("Training loss: {0}, BCE: {1}, dCorr: {2}, dCorrMET: {3} "
-          .format(loss_train/float(int(len(train[0])/batch_num)), l_bce_train/float(int(len(train[0])/batch_num)), l_dcorr_train/float(int(len(train[0])/batch_num)), l_dcorr_met_train/float(int(len(train[0])/batch_num)) ))
-    print("Validation loss: {0}, BCE: {1}, dCorr: {2}, dCorrMET: {3} "
-          .format(loss_val/float(int(len(val[0])/batch_num)), l_bce_val/float(int(len(val[0])/batch_num)), l_dcorr_val/float(int(len(val[0])/batch_num)) , l_dcorr_met_val/float(int(len(val[0])/batch_num)) ))
+    print("Training loss: {0}, BCE: {1} "
+          .format(loss_train/float(int(len(train[0])/batch_num)), l_bce_train/float(int(len(train[0])/batch_num)) ))
+    print("Validation loss: {0}, BCE: {1} "
+          .format(loss_val/float(int(len(val[0])/batch_num)), l_bce_val/float(int(len(val[0])/batch_num)) ))
 
 
 # In[8]:
@@ -722,10 +716,9 @@ with tf.Session() as newsess:
             Rr_test, Rs_test, Ra_test = getRmatrix(next_idx-j*batch_num)
         else:
           next_idx = (j+1)*batch_num
-        batch_data = test[0][j*batch_num:next_idx]
+        batch_tk = test[0][j*batch_num:next_idx]
+        batch_vtx = test[1][j*batch_num:next_idx]
         batch_label = test[2][j*batch_num:next_idx]
-        batch_ntk = test[1][j*batch_num:next_idx]
-        batch_met = test[3][j*batch_num:next_idx]
         if use_dR:
           batch_Rr = Rr_test[j*batch_num:next_idx]
           batch_Rs = Rs_test[j*batch_num:next_idx]
@@ -739,17 +732,13 @@ with tf.Session() as newsess:
         batch_weight[batch_weight==0] = 1e-08
         #batch_weight = np.ones(batch_label.shape)
 
-        b = newsess.run([out_sigmoid],feed_dict={O:batch_data,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra})
+        b = newsess.run([out_sigmoid],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,vtx:batch_vtx})
         pred.append(b[0])
         truth.append(batch_label)
-        ntk.append(batch_ntk)
 
 pred = np.concatenate(pred,axis=None)
 truth = np.concatenate(truth,axis=None)
-ntk = np.concatenate(ntk,axis=None)
-#print("number of test: {}".format(len(test[0])))
-#print(pred.shape)
-#print(truth.shape)
+
 
 # In[9]:
 
@@ -772,13 +761,13 @@ plt.close()
 #t_B = test[2][(b<0.4) & (test[1]>=5)]
 #t_C = test[2][(b>0.4) & (test[1]<5) & (test[1]>2)]
 #t_D = test[2][(b<0.4) & (test[1]<5) & (test[1]>2)]
-t_A = truth[(pred>0.4) & (ntk>=5)]
-t_B = truth[(pred<0.4) & (ntk>=5)]
-t_C = truth[(pred>0.4) & (ntk<5) & (ntk>2)]
-t_D = truth[(pred<0.4) & (ntk<5) & (ntk>2)]
-
-print("region A: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_A), np.sqrt(np.count_nonzero(t_A)), len(t_A)-np.count_nonzero(t_A), np.sqrt(len(t_A)-np.count_nonzero(t_A))))
-print("region B: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_B), np.sqrt(np.count_nonzero(t_B)), len(t_B)-np.count_nonzero(t_B), np.sqrt(len(t_B)-np.count_nonzero(t_B))))
-print("region C: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_C), np.sqrt(np.count_nonzero(t_C)), len(t_C)-np.count_nonzero(t_C), np.sqrt(len(t_C)-np.count_nonzero(t_C))))
-print("region D: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_D), np.sqrt(np.count_nonzero(t_D)), len(t_D)-np.count_nonzero(t_D), np.sqrt(len(t_D)-np.count_nonzero(t_D))))
-
+#t_A = truth[(pred>0.4) & (ntk>=5)]
+#t_B = truth[(pred<0.4) & (ntk>=5)]
+#t_C = truth[(pred>0.4) & (ntk<5) & (ntk>2)]
+#t_D = truth[(pred<0.4) & (ntk<5) & (ntk>2)]
+#
+#print("region A: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_A), np.sqrt(np.count_nonzero(t_A)), len(t_A)-np.count_nonzero(t_A), np.sqrt(len(t_A)-np.count_nonzero(t_A))))
+#print("region B: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_B), np.sqrt(np.count_nonzero(t_B)), len(t_B)-np.count_nonzero(t_B), np.sqrt(len(t_B)-np.count_nonzero(t_B))))
+#print("region C: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_C), np.sqrt(np.count_nonzero(t_C)), len(t_C)-np.count_nonzero(t_C), np.sqrt(len(t_C)-np.count_nonzero(t_C))))
+#print("region D: signals: {0} +- {1} backgrounds: {2} +- {3}".format(np.count_nonzero(t_D), np.sqrt(np.count_nonzero(t_D)), len(t_D)-np.count_nonzero(t_D), np.sqrt(len(t_D)-np.count_nonzero(t_D))))
+#
