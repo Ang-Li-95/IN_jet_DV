@@ -189,30 +189,30 @@ def importData(split, normalize=True,shuffle=True):
         #"qcdht0200_2017",
         "qcdht0300_2017",
         "qcdht0500_2017",
-        #"qcdht0700_2017",
-        #"qcdht1000_2017",
-        #"qcdht1500_2017",
-        #"qcdht2000_2017",
-        #"wjetstolnu_2017",
-        #"wjetstolnuext_2017",
-        #"zjetstonunuht0100_2017",
-        #"zjetstonunuht0200_2017",
-        #"zjetstonunuht0400_2017",
-        #"zjetstonunuht0600_2017",
-        #"zjetstonunuht0800_2017",
-        #"zjetstonunuht1200_2017",
-        #"zjetstonunuht2500_2017",
-        #"ttbar_2017",
+        "qcdht0700_2017",
+        "qcdht1000_2017",
+        "qcdht1500_2017",
+        "qcdht2000_2017",
+        "wjetstolnu_2017",
+        "wjetstolnuext_2017",
+        "zjetstonunuht0100_2017",
+        "zjetstonunuht0200_2017",
+        "zjetstonunuht0400_2017",
+        "zjetstonunuht0600_2017",
+        "zjetstonunuht0800_2017",
+        "zjetstonunuht1200_2017",
+        "zjetstonunuht2500_2017",
+        "ttbar_2017",
     ]
     fns_signal = [
         "mfv_splitSUSY_tau000000000um_M2000_1800_2017",
-        #"mfv_splitSUSY_tau000000000um_M2000_1900_2017",
-        #"mfv_splitSUSY_tau000000300um_M2000_1800_2017",
-        #"mfv_splitSUSY_tau000000300um_M2000_1900_2017",
-        #"mfv_splitSUSY_tau000001000um_M2000_1800_2017",
-        #"mfv_splitSUSY_tau000001000um_M2000_1900_2017",
-        #"mfv_splitSUSY_tau000010000um_M2000_1800_2017",
-        #"mfv_splitSUSY_tau000010000um_M2000_1900_2017",
+        "mfv_splitSUSY_tau000000000um_M2000_1900_2017",
+        "mfv_splitSUSY_tau000000300um_M2000_1800_2017",
+        "mfv_splitSUSY_tau000000300um_M2000_1900_2017",
+        "mfv_splitSUSY_tau000001000um_M2000_1800_2017",
+        "mfv_splitSUSY_tau000001000um_M2000_1900_2017",
+        "mfv_splitSUSY_tau000010000um_M2000_1800_2017",
+        "mfv_splitSUSY_tau000010000um_M2000_1900_2017",
     ]
     train_sig, val_sig, test_sig = GetDataAndLabel(fns_signal, split, True)
     train_bkg, val_bkg, test_bkg = GetDataAndLabel(fns_bkg, split, False)
@@ -242,7 +242,7 @@ def importData(split, normalize=True,shuffle=True):
             data_test[i] = data_test[i][shuffler]
 
     if normalize:
-      for i in range(1):
+      for i in range(2):
         data_train[i] = normalizedata(data_train[i])
         data_val[i] = normalizedata(data_val[i])
         data_test[i] = normalizedata(data_test[i])
@@ -273,10 +273,10 @@ def zeropadding(matrix, l):
     return np.array(m_mod)
 
 def normalizedata(data):
+  if len(data.shape)==3:
     n_features_data = Ds
     
     for i in range(n_features_data):
-        print(data.shape)
         l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
         l = l[l!=0]
         median = l[int(len(l)*0.5)]
@@ -285,7 +285,16 @@ def normalizedata(data):
         normalize_factors[i] = [median,l_min,l_max]
         print(normalize_factors[i])
         data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
-    return data
+  elif len(data.shape)==2:
+    for i in range(Dv):
+        l = np.sort(np.reshape(data[:,i],[1,-1])[0])
+        median = l[int(len(l)*0.5)]
+        l_min = l[int(len(l)*0.05)]
+        l_max = l[int(len(l)*0.95)]
+        normalize_factors[i] = [median,l_min,l_max]
+        print(normalize_factors[i])
+        data[:,i] = (data[:,i]-median)*(2.0/(l_max-l_min))
+  return data
 
 
 # In[3]:
@@ -517,11 +526,14 @@ def phi_vtx(T, vtx):
     w1 = tf.Variable(tf.random.truncated_normal([Dp+Dv, h_size], stddev=0.1), name="vtx_w1", dtype=tf.float32)
     b1 = tf.Variable(tf.zeros([1,h_size]), name="vtx_b1", dtype=tf.float32)
     h1 = tf.nn.relu(tf.matmul(tkvtx, w1)+b1)
-    w2 = tf.Variable(tf.random.truncated_normal([h_size,1], stddev=0.1), name="vtx_w2", dtype=tf.float32)
-    b2 = tf.Variable(tf.zeros([1,1]), name="vtx_b2", dtype=tf.float32)
+    w2 = tf.Variable(tf.random.truncated_normal([h_size,h_size], stddev=0.1), name="vtx_w2", dtype=tf.float32)
+    b2 = tf.Variable(tf.zeros([1,h_size]), name="vtx_b2", dtype=tf.float32)
     h2 = tf.nn.relu(tf.matmul(h1, w2)+b2)
-    h2 = tf.reshape(h2, [-1,1])
-    return h2
+    w3 = tf.Variable(tf.random.truncated_normal([h_size,1], stddev=0.1), name="vtx_w3", dtype=tf.float32)
+    b3 = tf.Variable(tf.zeros([1,1]), name="vtx_b3", dtype=tf.float32)
+    h3 = tf.matmul(h2, w3)+b3
+    h3 = tf.reshape(h3, [-1,1])
+    return h3
 
 
 # In[5]:
