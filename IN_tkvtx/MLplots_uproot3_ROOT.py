@@ -15,38 +15,34 @@ import sys
 import copy
 import uproot
 import ROOT
-#import tensorflow as tf
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+mlvar_tk = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
+mlvar_vtx = ['vtx_ntk', 'vtx_dBV', 'vtx_dBVerr']
+
 doSignal = False
 doBackground = True
 No=50
 Nr = No*(No-1)
-Ds=7
+Dp = 20
+Ds = len(mlvar_tk)
+Dv = len(mlvar_vtx)
 Dr=1
-use_dR = False
-#fn_dir = 'root://cmseos.fnal.gov//store/user/ali/JetTreelowMETothogonalVTXVkeeptk_v1METm/'
-#fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreelowMETwmassVkeeptk_v1METm/'
-fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/JetTreehighMETwmassVkeeptk_v1METm/'
-m_path = './20210415_0/'
-#save_plot_path='./20210411_0/'
+fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeAllVtxVkeeptk_v1METm/'
+m_path = './'
 save_plot_path='./'
-normalize_factors = {}
 
-mlvar = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
+
 
 # In[2]:
 
 plot_vars_titles = {
     'met_pt':['MET','MET (GeV)','# events'], 
     'nsv':['nSV','nSV','# events'], 
-    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
     'MLScore':['MLScore','MLScore','# events'],
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
@@ -82,18 +78,17 @@ plot_vars_titles = {
 plot_vars_single = {
     'met_pt':['MET','MET (GeV)','# events'], 
     'nsv':['nSV','nSV','# events'], 
-    'max_SV_ntracks':['max_ntracks_SV','max(ntracks/SV)','# events'],
     'MLScore':['MLScore','MLScore','# events'],
-}
-
-# variables that each event has possibly more than one value
-plot_vars_multi = {
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
     'vtx_dBVerr':['vtx_dBVerr','error dist2d(SV, beamspot) (cm)','# events'],
     'vtx_mass_track':['vtx_mass_track','SV tracks-only mass (GeV)','# events'],
     'vtx_mass_jet':['vtx_mass_jet','SV jets-by-ntracks -only mass (GeV)','# events'],
     'vtx_mass_trackjet':['vtx_mass_trackjet','SV tracks-plus-jets-by-ntracks mass (GeV)','# events'],
+}
+
+# variables that each event has possibly more than one value
+plot_vars_multi = {
     'jet_pt':['jet_pt','jet pT (GeV)','# events'],
     'jet_eta':['jet_eta','jet eta','# events'],
     'jet_phi':['jet_phi','jet phi','# events'],
@@ -106,10 +101,6 @@ plot_vars_multi = {
     'tk_dz':['tk_dz','track dz (cm)','# events'],
     'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
     'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
-}
-
-# variables that each event has multiple arrays
-plot_vars_nestedarray = {
     'vtx_tk_pt':['vtx_tk_pt','all SV tracks pT (GeV)','# events'], 
     'vtx_tk_eta':['vtx_tk_eta','all SV tracks eta','# events'], 
     'vtx_tk_phi':['vtx_tk_phi','all SV tracks phi','# events'],
@@ -121,10 +112,13 @@ plot_vars_nestedarray = {
     'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
 }
 
+# variables that each event has multiple arrays
+plot_vars_nestedarray = {
+}
+
 plot_setting = {
     'met_pt': {'range':(0,150), 'bins':60},
     'nsv': {'range':(0,10), 'bins':10},
-    'max_SV_ntracks': {'range':(0,40), 'bins':40},
     'MLScore': {'range':(0,1), 'bins':100},
     'vtx_ntk': {'range':(0,40), 'bins':40},
     'vtx_dBV': {'range':(0,0.4), 'bins':100},
@@ -215,11 +209,11 @@ def GetNevts(fns):
         del f
     return nevents
 
-def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
-    ML_inputs = []
-    ML_inputs_original = []
+def GetData(fns, cut="(met_pt < 150) & (vtx_ntk > 0)"):
+    ML_inputs_tk = []
+    ML_inputs_vtx = []
     phys_variables = []
-    variables = ['evt', 'weight', 'max_SV_ntracks', 'met_pt', 'met_phi', 'nsv', 
+    variables = ['evt', 'weight', 'met_pt', 'met_phi', 'nsv', 
                  'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
                  'tk_pt', 'tk_eta', 'tk_phi', 
                  'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err', 
@@ -236,46 +230,44 @@ def GetData(fns, cut="(met_pt < 150) & (max_SV_ntracks > 0)"):
           continue
         phys = f.arrays(variables, namedecode="utf-8")
         del f
-        evt_select = (phys['met_pt']>=150) & (phys['max_SV_ntracks']>0) & (phys['vtx_dBV'].max()>0.005) & (phys['vtx_dBVerr'].min()<0.01)
+        evt_select = (phys['met_pt']>=120) & (phys['met_pt']<150) & (phys['vtx_ntk']>0)
         for v in phys:
           phys[v] = np.array(phys[v][evt_select])
         if len(phys['evt'])==0:
             print("no events after selection!")
             continue
-        matrix = np.array([phys[v] for v in mlvar])
-        #matrix = np.array([phys['jet_pt'], phys['jet_eta'], phys['jet_phi'], phys['jet_energy']])
-        m = zeropadding(matrix, No)
-        ML_inputs_original.append(m.copy())
-        m = normalizedata(m)
-        ML_inputs.append(m)
+        m_tk = np.array([phys[v] for v in mlvar_tk])
+        m_vtx = np.array([phys[v] for v in mlvar_vtx]).T
+        m_tk = zeropadding(m_tk, No)
+        m_tk = normalizedata(m_tk)
+        m_vtx = normalizedata(m_vtx)
+        ML_inputs_tk.append(m_tk)
+        ML_inputs_vtx.append(m_vtx)
         phys_variables.append(phys)
         
-    return ML_inputs, ML_inputs_original, phys_variables
+    return ML_inputs_tk, ML_inputs_vtx, phys_variables
 
-def calcMLscore(ML_inputs, ML_inputs_ori, model_path='./', model_name="test_model.meta"):
+def calcMLscore(ML_inputs_tk, ML_inputs_vtx, model_path='./', model_name="test_model.meta"):
     batch_size=4096
     with tf.Session() as sess:
         saver = tf.train.import_meta_graph(model_path+model_name)
         saver.restore(sess, tf.train.latest_checkpoint(model_path))
         MLscores = []
-        for iML in range(len(ML_inputs)):
-            ML_input = ML_inputs[iML]
-            ML_input_ori = ML_inputs_ori[iML]
+        for iML in range(len(ML_inputs_tk)):
+            ML_input_tk = ML_inputs_tk[iML]
+            ML_input_vtx = ML_inputs_vtx[iML]
             evt=0
             outputscore = []
-            while evt<len(ML_input):
-                if evt+batch_size <= len(ML_input):
-                    batch_input = ML_input[evt:evt+batch_size]
-                    batch_input_ori = ML_input_ori[evt:evt+batch_size]
+            while evt<len(ML_input_tk):
+                if evt+batch_size <= len(ML_input_tk):
+                    batch_input_tk = ML_input_tk[evt:evt+batch_size]
+                    batch_input_vtx = ML_input_vtx[evt:evt+batch_size][:,1:]
                 else:
-                    batch_input = ML_input[evt:]
-                    batch_input_ori = ML_input_ori[evt:]
+                    batch_input_tk = ML_input_tk[evt:]
+                    batch_input_vtx = ML_input_vtx[evt:][:,1:]
                 evt += batch_size
-                if use_dR:
-                  Rr, Rs, Ra = getRmatrix_dR2(batch_input_ori[:,1:3,:])
-                else:
-                  Rr, Rs, Ra = getRmatrix(len(batch_input))
-                ML_output = sess.run(['INscore:0'],feed_dict={'O:0':batch_input,'Rr:0':Rr,'Rs:0':Rs,'Ra:0':Ra})#,label:test[2],ntk_max:test[1],evtweight:(test[2]-1)*(-1)})
+                Rr, Rs, Ra = getRmatrix(len(batch_input_tk))
+                ML_output = sess.run(['INscore:0'],feed_dict={'O:0':batch_input_tk,'Rr:0':Rr,'Rs:0':Rs,'Ra:0':Ra,'vtx:0':batch_input_vtx})
                 outputscore.append(ML_output[0])
             outputscore = np.concatenate(outputscore)
             MLscores.append(outputscore)
@@ -292,54 +284,69 @@ def zeropadding(matrix, l):
     l: expected length of each event (# objects)
     '''
     m_mod = []
-    #idx = np.sort(np.array(list(set(df.index.droplevel(['subentry'])))))
-    #print(idx)
     for i in range(matrix.shape[1]):
         # transfer df to matrix for each event
-        #m = np.array([matrix[:,i][0],matrix[:,i][1], matrix[:,i][2], matrix[:,i][3]])
-        m = np.array([matrix[:,i][v] for v in range(len(mlvar))])
+        m = np.array([matrix[:,i][v] for v in range(len(mlvar_tk))])
         sortedidx = np.argsort(m[0,:])[::-1]
         m = m[:,sortedidx]
-        #m = np.array(df.loc[i].T)
         if m.shape[1]<l:
             idx_mod = l-m.shape[1]
             pad = np.zeros((m.shape[0],idx_mod))
             m_mod.append(np.concatenate((m,pad), axis=1))
-            #print(np.concatenate((m[i],pad), axis=1))
         else:
             m_mod.append(m[:,0:l])
-        #print (m_mod[i].shape)
     return np.array(m_mod)
 
 def normalizedata(data):
-    n_features_data = Ds
-    normalize_factors = [
-        #[2.1816406679450657, 1.062500040644502, 20.078124592116605],
-        #[0.12451552155432945, -1.8609576341644036, 2.053407424463079],
-        #[-0.06035980748269992, -2.8188307302253506, 2.801946409279582],
-        #[-1.5050249861509261e-05, -0.026793859606046376, 0.026827086804321543],
-        #[-0.0039861770169507685, -9.171536302834037, 9.322075933251009],
-        #[-0.1705471082009359, -5.720800580412514, 5.219436095637275],
-        #[-22.98692569571753, -1463.7623074782282, 1192.6415322048178],
-        [2.9902343476623363, 1.6103515050761894, 21.671875749412926],
-        [-0.0043946650753236205, -2.049745121231547, 2.04150510191022],
-        [-0.05507905809333474, -2.817760236900055, 2.8013536897606315],
-        [-1.5896082453516604e-05, -0.028481722307173097, 0.028575759352729244],
-        [-0.005081050368458236, -11.53984885429798, 11.746383776779878],
-        [-0.14610174776891854, -5.729244305990972, 5.3753020975522325],
-        [-20.675411128530353, -1595.7082149035527, 1344.5222105467956],
-    ]
-    for i in range(n_features_data):
-        #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
-        #l = l[l!=0]
+  if len(data.shape)==3: # track information
+      n_features_data = Ds
+      normalize_factors = [
+        [2.824218784833551, 1.5800781618234907, 19.62499955814752],
+        [-0.0034791100282730485, -2.0726340132570207, 2.0676901248054667],
+        [-0.05938091789171784, -2.816202405480905, 2.8012547293419745],
+        [-1.1822566514803765e-05, -0.021601227762639737, 0.02165756641342025],
+        [-0.0037247247384504484, -8.004908446274536, 8.116710582719518],
+        [-0.05485231134043566, -5.719750901809431, 5.558150619699294],
+        [-6.858657703447766, -1493.8802045980676, 1365.9591350701883],
+
+       # [2.9921873872923204, 1.611328077679927, 21.71874959314235],
+       # [-0.002197332689525855, -2.048280274828707, 2.042786889451172],
+       # [-0.052151510542675854, -2.817853695217341, 2.8010604232716134],
+       # [-1.732961020127676e-05, -0.028163788829690593, 0.02851495531392332],
+       # [-0.005698038153573307, -11.426820067878031, 11.702616042874618],
+       # [-0.14710353453291264, -5.731804870816317, 5.285190151497996],
+       # [-21.600074211563726, -1585.8880161098537, 1330.0520110241957],
+      ]
+      for i in range(n_features_data):
+          #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
+          #l = l[l!=0]
+          #median = l[int(len(l)*0.5)]
+          #l_min = l[int(len(l)*0.05)]
+          #l_max = l[int(len(l)*0.95)]
+          median = normalize_factors[i][0]
+          l_min = normalize_factors[i][1]
+          l_max = normalize_factors[i][2]
+          data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
+  elif len(data.shape)==2:
+      normalize_factors = [
+        [4.0, 3.0, 10.0],
+        [0.21245913207530975, 0.016612542793154716, 1.3410828113555908],
+        [0.005510474089533091, 0.0008672495023347437, 0.009639167226850986],
+        #[4.0, 3.0, 12.0],
+        #[0.034128569066524506, 0.012649158015847206, 0.6244454383850098],
+        #[0.0013990550069138408, 0.0007133422768674791, 0.002221108181402087],
+      ]
+      for i in range(Dv):
+        #l = np.sort(np.reshape(data[:,i],[1,-1])[0])
         #median = l[int(len(l)*0.5)]
         #l_min = l[int(len(l)*0.05)]
         #l_max = l[int(len(l)*0.95)]
         median = normalize_factors[i][0]
         l_min = normalize_factors[i][1]
         l_max = normalize_factors[i][2]
-        data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
-    return data
+        data[:,i] = (data[:,i]-median)*(2.0/(l_max-l_min))
+
+  return data
 
 def getRmatrix(mini_batch_num=100):
     # Set Rr_data, Rs_data, Ra_data and X_data
@@ -354,37 +361,6 @@ def getRmatrix(mini_batch_num=100):
                 Rs_data[:,j,cnt]=1.0
                 cnt+=1
     return Rr_data, Rs_data, Ra_data
-
-def getRmatrix_dR2(jets):
-    n_evt = len(jets)
-    # Set Rr_data, Rs_data, Ra_data and X_data
-    Rr_data=np.zeros((n_evt,No,Nr),dtype=float)
-    Rs_data=np.zeros((n_evt,No,Nr),dtype=float)
-    Ra_data=np.ones((n_evt,Dr,Nr),dtype=float)
-    cnt=0
-    for i in range(No):
-        for j in range(No):
-            if(i!=j):
-                # use mask to get rid the padded non-existing jets
-                mask = np.multiply(jets[:,0,i],jets[:,0,j])==0
-                dR2 = np.sum(np.square(jets[:,0:2,i]-jets[:,0:2,j]),axis=1)
-                dR2[mask] = -1
-                dR2_inverse = (1e-03)/dR2
-                dR2_inverse[mask] = 0
-                Rr_data[:,i,cnt]=dR2_inverse
-                Rs_data[:,j,cnt]=dR2_inverse
-                cnt+=1
-    R_sum = np.sum(Rr_data,axis=(1,2))
-    #Rr_data = Rr_data/R_sum
-    #Rs_data = Rs_data/R_sum
-    for i in range(len(R_sum)):
-        if R_sum[i]==0:
-            continue
-        Rr_data[i] = Rr_data[i]/R_sum[i]
-        Rs_data[i] = Rs_data[i]/R_sum[i]
-    return Rr_data, Rs_data, Ra_data
-
-# In[7]:
 
 def makehist(data,weight,var):
     assert(var in plot_setting)
@@ -443,7 +419,7 @@ def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
         MLoutput_sig = signals[i]['MLScore']
         w_sig = signals[i]['weight']
         comparehists([MLoutput_sig, MLoutput_bkg], [w_sig, w_bkg], ['signal', 'background'], 
-                     [sig_fns[i], 'MLscore', 'fraction of events'],True, '_sig_bkg_compare'+sig_fns[i], bins=100, range=(0,1))
+                     [sig_fns[i], 'MLscore', 'fraction of events'],True, '_sig_bkg_compare'+sig_fns[i], bins=50, range=(0,1))
     #compare.show()
     #return compare
 
@@ -534,12 +510,12 @@ def getPlotData(phys_vars, vars_name, idx, fns):
 
 def makeplotfile(fns,newfn,isSignal):
     fnew = ROOT.TFile(newfn+".root","RECREATE")
-    MLscore_threshold = 0.4
-    ML_inputs, ML_inputs_ori, phys_vars = GetData(fns)
-    assert(len(fns)==len(ML_inputs))
-    assert(len(fns)==len(ML_inputs_ori))
+    MLscore_threshold = 0.2
+    ML_inputs_tk, ML_inputs_vtx, phys_vars = GetData(fns)
+    assert(len(fns)==len(ML_inputs_tk))
+    assert(len(fns)==len(ML_inputs_vtx))
     assert(len(fns)==len(phys_vars))
-    ML_outputs = calcMLscore(ML_inputs, ML_inputs_ori, model_path=m_path)
+    ML_outputs = calcMLscore(ML_inputs_tk, ML_inputs_vtx, model_path=m_path)
     for i in range(len(fns)):
         phys_vars[i]['MLScore'] = ML_outputs[i]
     idx_highML = []
@@ -559,7 +535,7 @@ def makeplotfile(fns,newfn,isSignal):
         idx_all.append(allML)
 
     for i in range(len(fns)):
-        max_ntk = phys_vars[i]['max_SV_ntracks']
+        max_ntk = phys_vars[i]['vtx_ntk']
         ntk_3 = max_ntk==3
         ntk_4 = max_ntk==4
         ntk_5 = max_ntk>=5
@@ -568,7 +544,7 @@ def makeplotfile(fns,newfn,isSignal):
         ntk_idx['5trk'].append(np.reshape(ntk_5, len(ntk_5)))
 
     vars_name = [
-      'met_pt','nsv','max_SV_ntracks','MLScore',
+      'met_pt','nsv','MLScore',
       'jet_pt', 'jet_eta', 'jet_phi',
       'vtx_ntk','vtx_dBV','vtx_dBVerr', 'vtx_mass_track', 'vtx_mass_jet', 'vtx_mass_trackjet',
       'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err',
@@ -596,7 +572,7 @@ def makeplotfile(fns,newfn,isSignal):
 
     # print number of events in each region
     weights = GetNormWeight(fns, int_lumi=41521.0)
-    cut_var = 'max_SV_ntracks'
+    cut_var = 'vtx_ntk'
     cut_val = 5
     # total_sum/var = [A,B,C,D] representing regions
     region_names = ['A', 'B', 'C', 'D']
@@ -628,7 +604,7 @@ def makeplotfile(fns,newfn,isSignal):
 
 def main():
     fns = [
-      #'qcdht0200_2017',
+      'qcdht0200_2017',
       'qcdht0300_2017',
       'qcdht0500_2017',
       'qcdht0700_2017', 
@@ -647,7 +623,7 @@ def main():
       'ttbar_2017',
     ]
     if doBackground:
-      makeplotfile(fns,"background_highMET",False)
+      makeplotfile(fns,"background_lowMET",False)
 
     sig_fns = ['mfv_splitSUSY_tau000000000um_M2000_1800_2017',
                'mfv_splitSUSY_tau000000000um_M2400_2300_2017',
@@ -664,7 +640,7 @@ def main():
               ]
     if doSignal:
       for sig_fn in sig_fns:
-        makeplotfile([sig_fn],sig_fn+"highMET",True)
+        makeplotfile([sig_fn],sig_fn+"lowMET",True)
 
 
 # In[6]:
