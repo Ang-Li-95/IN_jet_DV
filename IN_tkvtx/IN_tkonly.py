@@ -26,7 +26,7 @@ Dv_ori = len(mlvar_vtx)
 Dr = 1
 De = 20
 #lambda_dcorr = 0.5
-lambda_param = 0.001
+lambda_param = 0.003
 lambda_dcorr_met = 0
 lr = 0.0005
 use_dR = False
@@ -563,7 +563,6 @@ O = tf.placeholder(tf.float32, [None, Ds, No], name='O')
 Rr = tf.placeholder(tf.float32, [None, No, Nr], name="Rr")
 Rs = tf.placeholder(tf.float32, [None, No, Nr], name="Rs")
 Ra = tf.placeholder(tf.float32, [None, Dr, Nr], name="Ra")
-vtx = tf.placeholder(tf.float32, [None, Dv], name='vtx')
 
 label = tf.placeholder(tf.float32, [None, 1], name="label")
 ntk_max = tf.placeholder(tf.float32, [None, 1], name="ntk_max")
@@ -579,11 +578,12 @@ C = a(O,Rr,E)
 
 P = phi_O(C)
 
+out = phi_output(P)
 #P = tf.reduce_sum(P, axis=2, keepdims=True)
-out_tk = phi_output_nd(P)
-#out_tkonly = phi_tk(out_tk)
+#out_tk = phi_output_nd(P)
+#out = phi_tk(out_tk)
 #out_tkonly_sigmoid = tf.math.sigmoid(out_tkonly, name="INscore_tk")
-out = phi_vtx(out_tk,vtx)
+#out = phi_vtx(out_tk,vtx)
 out_sigmoid = tf.math.sigmoid(out, name="INscore")
 
 params_list = tf.global_variables()
@@ -626,7 +626,7 @@ else:
 
 # training
 num_epochs_tk=0
-num_epochs=50
+num_epochs=100
 history = []
 history_val = []
 h_bce = []
@@ -639,7 +639,7 @@ min_loss = 100
 for i in range(num_epochs):
     lambda_dcorr_epoch = 0
     if i>=10:
-      lambda_dcorr_epoch = 1.0
+      lambda_dcorr_epoch = 0.5
     if i==num_epochs_tk:
       print("training on Vertices info")
     loss_train = 0
@@ -648,7 +648,6 @@ for i in range(num_epochs):
     l_dcorr_met_train = 0
     for j in range(int(len(train[0])/batch_num)):
         batch_tk = train[0][j*batch_num:(j+1)*batch_num]
-        batch_vtx = train[1][j*batch_num:(j+1)*batch_num]
         batch_ntk = train[1][j*batch_num:(j+1)*batch_num][:,0]
         batch_ntk = np.reshape(batch_ntk, (-1,1))
         batch_label = train[2][j*batch_num:(j+1)*batch_num]
@@ -671,7 +670,7 @@ for i in range(num_epochs):
         #  l_bce_train+=bce_train
         #  l_dcorr_train+=dcorr_ntk_train
         #else:
-        l_train,_,bce_train,dcorr_ntk_train=sess.run([loss,trainer,loss_bce,dcorr],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,vtx:batch_vtx,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight, lambda_dcorr:lambda_dcorr_epoch})
+        l_train,_,bce_train,dcorr_ntk_train=sess.run([loss,trainer,loss_bce,dcorr],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight, lambda_dcorr:lambda_dcorr_epoch})
         loss_train+=l_train
         l_bce_train+=bce_train
         l_dcorr_train+=dcorr_ntk_train
@@ -696,7 +695,6 @@ for i in range(num_epochs):
     l_dcorr_met_val = 0
     for j in range(int(len(val[0])/batch_num)):
         batch_tk = val[0][j*batch_num:(j+1)*batch_num]
-        batch_vtx = val[1][j*batch_num:(j+1)*batch_num]
         batch_ntk = val[1][j*batch_num:(j+1)*batch_num][:,0]
         batch_ntk = np.reshape(batch_ntk, (-1,1))
         batch_label = val[2][j*batch_num:(j+1)*batch_num]
@@ -718,7 +716,7 @@ for i in range(num_epochs):
         #  l_bce_val+=bce_val
         #  l_dcorr_val+=dcorr_ntk_val
         #else:
-        l_val,_,bce_val,dcorr_ntk_val=sess.run([loss,out_sigmoid,loss_bce,dcorr],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,vtx:batch_vtx,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight,lambda_dcorr:lambda_dcorr_epoch})
+        l_val,_,bce_val,dcorr_ntk_val=sess.run([loss,out_sigmoid,loss_bce,dcorr],feed_dict={O:batch_tk,Rr:batch_Rr,Rs:batch_Rs,Ra:batch_Ra,label:batch_label,ntk_max:batch_ntk,evtweight:batch_weight,lambda_dcorr:lambda_dcorr_epoch})
         loss_val+=l_val
         l_bce_val+=bce_val
         l_dcorr_val+=dcorr_ntk_val
@@ -777,7 +775,6 @@ with tf.Session() as newsess:
         else:
           next_idx = (j+1)*batch_num
         batch_tk = test[0][j*batch_num:next_idx]
-        batch_vtx = test[1][j*batch_num:next_idx]
         batch_ntk = test[1][j*batch_num:next_idx][:,0]
         batch_label = test[2][j*batch_num:next_idx]
         if use_dR:
@@ -793,7 +790,7 @@ with tf.Session() as newsess:
         #batch_weight[batch_weight==0] = 1e-08
         batch_weight = np.ones(batch_label.shape)
 
-        b = newsess.run(['INscore:0'],feed_dict={'O:0':batch_tk,'Rr:0':batch_Rr,'Rs:0':batch_Rs,'Ra:0':batch_Ra,'vtx:0':batch_vtx})
+        b = newsess.run(['INscore:0'],feed_dict={'O:0':batch_tk,'Rr:0':batch_Rr,'Rs:0':batch_Rs,'Ra:0':batch_Ra})
         pred.append(b[0])
         truth.append(batch_label)
         ntk.append(batch_ntk*((l_max-l_min)/2.0)+median)

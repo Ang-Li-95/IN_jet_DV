@@ -20,11 +20,14 @@ tf.disable_v2_behavior()
 
 import matplotlib.pyplot as plt
 import numpy as np
+from array import array
 
 mlvar_tk = ['tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs','tk_dxybs_sig','tk_dz','tk_dz_sig']
 mlvar_vtx = ['vtx_ntk', 'vtx_dBV', 'vtx_dBVerr']
 
-doSignal = True
+METNoMu_avai = False
+B_info = True
+doSignal = False
 doBackground = True
 No=50
 Nr = No*(No-1)
@@ -32,8 +35,11 @@ Dp = 20
 Ds = len(mlvar_tk)
 Dv = len(mlvar_vtx)
 Dr=1
-fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeAllVtxVkeeptk_v1METm/'
-m_path = './'
+#fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeAllVtxVkeeptk_v1METm/'
+#fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeAllVtxVkeeptk_ttbarht_v1METm/'
+#fn_dir = '/uscms/home/ali/nobackup/LLP/crabdir/MLTreeHighMETAllVtxVkeeptk_v2_metMETm/'
+fn_dir = 'root://cmseos.fnal.gov//store/user/ali/MLTreeAllVtxBInfoVkeeptk_v1METm/'
+m_path = './model_0618/'
 save_plot_path='./'
 
 
@@ -42,7 +48,9 @@ save_plot_path='./'
 
 plot_vars_titles = {
     'met_pt':['MET','MET (GeV)','# events'], 
+    'metnomu_pt':['METNoMu','METNoMu (GeV)','# events'], 
     'nsv':['nSV','nSV','# events'], 
+    'nbtag_jet':['nbtag_jet','number of b-tagged jets','# events'],
     'MLScore':['MLScore','MLScore','# events'],
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
@@ -62,6 +70,9 @@ plot_vars_titles = {
     'jet_pt':['jet_pt','jet pT (GeV)','# events'],
     'jet_eta':['jet_eta','jet eta','# events'],
     'jet_phi':['jet_phi','jet phi','# events'],
+    'jet_ntrack':['jet_ntrack','jet nTrack','# events'],
+    'jet_btag':['jet_btag','jet btag','# events'],
+    'jet_flavor':['jet_flavor','jet flavor','# events'],
     'tk_pt':['tk_pt','track pT (GeV)','# events'],
     'tk_eta':['tk_eta','track eta','# events'],
     'tk_phi':['tk_phi','track phi','# events'],
@@ -71,13 +82,20 @@ plot_vars_titles = {
     'tk_dz':['tk_dz','track dz (cm)','# events'],
     'tk_dz_sig':['tk_dz_sig','track nsigma(dz)','# events'],
     'tk_dz_err':['tk_dz_err','track err(dz) (cm)','# events'],
+    'n_gen_bquarks':['n_gen_bquarks','number of gen b-quarks','# events'],
+    'gen_bquarks_pt':['gen_bquarks_pt','gen bquark pT (GeV)','# events'],
+    'gen_bquarks_eta':['gen_bquarks_eta','gen bquarks eta','# events'],
+    'gen_bquarks_phi':['gen_bquarks_phi','gen bquarks phi','# events'],
+    
 
 }
 
 # variables that each event has only one value
 plot_vars_single = {
     'met_pt':['MET','MET (GeV)','# events'], 
+    'metnomu_pt':['METNoMu','METNoMu (GeV)','# events'], 
     'nsv':['nSV','nSV','# events'], 
+    'nbtag_jet':['nbtag_jet','number of b-tagged jets','# events'],
     'MLScore':['MLScore','MLScore','# events'],
     'vtx_ntk':['vtx_ntk','nTracks/SV','# events'],
     'vtx_dBV':['vtx_dBV','dist2d(SV, beamspot) (cm)','# events'],
@@ -85,6 +103,7 @@ plot_vars_single = {
     'vtx_mass_track':['vtx_mass_track','SV tracks-only mass (GeV)','# events'],
     'vtx_mass_jet':['vtx_mass_jet','SV jets-by-ntracks -only mass (GeV)','# events'],
     'vtx_mass_trackjet':['vtx_mass_trackjet','SV tracks-plus-jets-by-ntracks mass (GeV)','# events'],
+    'n_gen_bquarks':['n_gen_bquarks','number of gen b-quarks','# events'],
 }
 
 # variables that each event has possibly more than one value
@@ -92,6 +111,9 @@ plot_vars_multi = {
     'jet_pt':['jet_pt','jet pT (GeV)','# events'],
     'jet_eta':['jet_eta','jet eta','# events'],
     'jet_phi':['jet_phi','jet phi','# events'],
+    'jet_ntrack':['jet_ntrack','jet nTrack','# events'],
+    'jet_btag':['jet_btag','jet btag','# events'],
+    'jet_flavor':['jet_flavor','jet flavor','# events'],
     'tk_pt':['tk_pt','track pT (GeV)','# events'],
     'tk_eta':['tk_eta','track eta','# events'],
     'tk_phi':['tk_phi','track phi','# events'],
@@ -110,43 +132,57 @@ plot_vars_multi = {
     'vtx_tk_dz':['vtx_tk_dz','all SV tracks dz (cm)','# events'],
     'vtx_tk_dz_err':['vtx_tk_dz_err','all SV tracks err(dz) (cm)','# events'],
     'vtx_tk_nsigmadz':['vtx_tk_nsigmadz','all SV tracks nsigma(dz)','# events'],
+    'gen_bquarks_pt':['gen_bquarks_pt','gen bquark pT (GeV)','# events'],
+    'gen_bquarks_eta':['gen_bquarks_eta','gen bquarks eta','# events'],
+    'gen_bquarks_phi':['gen_bquarks_phi','gen bquarks phi','# events'],
 }
 
 # variables that each event has multiple arrays
 plot_vars_nestedarray = {
 }
-
+bins_dBV = [0,0.01,0.02,0.03]
+bins_dBV += [i*0.04 for i in range(1,26)]
 plot_setting = {
-    'met_pt': {'range':(0,150), 'bins':60},
+    'met_pt': {'range':(0,2000), 'bins':100},
+    'metnomu_pt': {'range':(0,2000), 'bins':100},
     'nsv': {'range':(0,10), 'bins':10},
-    'MLScore': {'range':(0,1), 'bins':100},
+    'nbtag_jet': {'range':(0,10),'bins':10},
+    'MLScore': {'range':(0,1), 'bins':25},
     'vtx_ntk': {'range':(0,40), 'bins':40},
-    'vtx_dBV': {'range':(0,1), 'bins':100},
-    'vtx_dBVerr': {'range':(0,0.05), 'bins':100},
-    'vtx_mass_track': {'range':(0,200), 'bins':100},
-    'vtx_mass_jet': {'range':(0,500), 'bins':100},
-    'vtx_mass_trackjet': {'range':(0,500), 'bins':100},
-    'vtx_tk_pt': {'range':(0,200), 'bins':100},
+    #'vtx_dBV': {'range':(0,1), 'bins':25},
+    'vtx_dBV': {'binlist':array('d', bins_dBV), 'range':(0,1), 'bins':25},
+    'vtx_dBVerr': {'range':(0,0.005), 'bins':25},
+    'vtx_mass_track': {'range':(0,200), 'bins':25},
+    'vtx_mass_jet': {'range':(0,500), 'bins':50},
+    'vtx_mass_trackjet': {'range':(0,500), 'bins':50},
+    'vtx_tk_pt': {'range':(0,200), 'bins':50},
     'vtx_tk_eta': {'range':(-4,4), 'bins':50},
     'vtx_tk_phi': {'range':(-3.2,3.2), 'bins':64},
-    'vtx_tk_dxy': {'range':(0,0.5), 'bins':50},
-    'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':50},
-    'vtx_tk_nsigmadxy': {'range':(0,10), 'bins':50},
+    'vtx_tk_dxy': {'range':(0,0.5), 'bins':25},
+    'vtx_tk_dxy_err': {'range':(0,0.025), 'bins':25},
+    'vtx_tk_nsigmadxy': {'range':(0,40), 'bins':25},
     'vtx_tk_dz': {'range':(0,20), 'bins':50},
-    'vtx_tk_dz_err': {'range':(0,0.15), 'bins':100},
-    'vtx_tk_nsigmadz': {'range':(0,3000), 'bins':100},
+    'vtx_tk_dz_err': {'range':(0,0.15), 'bins':50},
+    'vtx_tk_nsigmadz': {'range':(0,3000), 'bins':50},
     'jet_pt': {'range':(0,500), 'bins':50},
     'jet_eta': {'range':(-4,4), 'bins':50},
     'jet_phi': {'range':(-3.2,3.2), 'bins':64},
-    'tk_pt': {'range':(0,500), 'bins':200},
+    'jet_ntrack': {'range':(0,40), 'bins':40},
+    'jet_btag': {'range':(0,5),'bins':5},
+    'jet_flavor': {'range':(0,5), 'bins':5},
+    'tk_pt': {'range':(0,500), 'bins':100},
     'tk_eta': {'range':(-4,4), 'bins':50},
     'tk_phi': {'range':(-3.2,3.2), 'bins':64},
-    'tk_dxybs': {'range':(-0.5,0.5), 'bins':100},
-    'tk_dxybs_sig': {'range':(-10,10), 'bins':50},
+    'tk_dxybs': {'range':(-0.5,0.5), 'bins':50},
+    'tk_dxybs_sig': {'range':(-40,40), 'bins':50},
     'tk_dxybs_err': {'range':(0,0.06), 'bins':50},
     'tk_dz': {'range':(-15,15), 'bins':50},
-    'tk_dz_sig': {'range':(-3000,3000), 'bins':100},
+    'tk_dz_sig': {'range':(-3000,3000), 'bins':50},
     'tk_dz_err': {'range':(0,0.1), 'bins':50},
+    'n_gen_bquarks': {'range':(0,10), 'bins':10},
+    'gen_bquarks_pt': {'range':(0,500), 'bins':50},
+    'gen_bquarks_eta': {'range':(-4,4), 'bins':50},
+    'gen_bquarks_phi': {'range':(-3.2,3.2), 'bins':64},
 }
 
 def GetXsec(fns):
@@ -159,8 +195,9 @@ def GetXsec(fns):
         "qcdht1000_2017": 1.096E+03,
         "qcdht1500_2017": 99.0,
         "qcdht2000_2017": 20.2,
-        "wjetstolnu_2017": 5.28E+04,
-        "wjetstolnuext_2017": 5.28E+04,
+        "wjetstolnusum_2017": 5.28E+04,
+        #"wjetstolnu_2017": 5.28E+04,
+        #"wjetstolnuext_2017": 5.28E+04,
         "zjetstonunuht0100_2017": 302.8,
         "zjetstonunuht0200_2017": 92.59,
         "zjetstonunuht0400_2017": 13.18,
@@ -169,6 +206,10 @@ def GetXsec(fns):
         "zjetstonunuht1200_2017": 0.3419,
         "zjetstonunuht2500_2017": 0.005146,
         "ttbar_2017": 832,
+        "ttbarht0600_2017": 1.821,
+        "ttbarht0800_2017": 0.7532,
+        "ttbarht1200_2017": 0.1316,
+        "ttbarht2500_2017": 0.001407,
         "mfv_splitSUSY_tau000000000um_M2000_1800_2017": 1e-03,
         "mfv_splitSUSY_tau000000000um_M2000_1900_2017": 1e-03,
         'mfv_splitSUSY_tau000000000um_M2400_2300_2017': 1e-03,
@@ -213,6 +254,7 @@ def GetData(fns, cut="(met_pt < 150) & (vtx_ntk > 0)"):
     ML_inputs_tk = []
     ML_inputs_vtx = []
     phys_variables = []
+    #variables = ['evt', 'weight', 'met_pt', 'met_phi', 'metnomu_pt', 'metnomu_phi', 'nsv', 
     variables = ['evt', 'weight', 'met_pt', 'met_phi', 'nsv', 
                  'jet_pt', 'jet_eta', 'jet_phi', 'jet_energy', 
                  'tk_pt', 'tk_eta', 'tk_phi', 
@@ -220,6 +262,10 @@ def GetData(fns, cut="(met_pt < 150) & (vtx_ntk > 0)"):
                  'vtx_ntk', 'vtx_dBV', 'vtx_dBVerr', 'vtx_mass_track', 'vtx_mass_jet', 'vtx_mass_trackjet',
                  'vtx_tk_pt', 'vtx_tk_eta', 'vtx_tk_phi', 
                  'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz']
+    if METNoMu_avai:
+      variables += ['metnomu_pt', 'metnomu_phi']
+    if B_info:
+      variables += ['nbtag_jet', 'n_gen_bquarks', 'jet_ntrack', 'jet_btag', 'jet_flavor', 'gen_bquarks_pt', 'gen_bquarks_eta', 'gen_bquarks_phi']
     for fn in fns:
         #print(fn)
         print("opening {}...".format(fn_dir+fn+'.root'))
@@ -230,7 +276,8 @@ def GetData(fns, cut="(met_pt < 150) & (vtx_ntk > 0)"):
           continue
         phys = f.arrays(variables, namedecode="utf-8")
         del f
-        evt_select = (phys['met_pt']>=100) & (phys['met_pt']<150) & (phys['vtx_ntk']>0) & (phys['vtx_dBVerr']<0.01)
+        evt_select = (phys['met_pt']>=80) & (phys['met_pt']<150) & (phys['vtx_ntk']>0) & (phys['vtx_dBVerr']<0.0025)
+        #evt_select = (phys['vtx_ntk']>0) & (phys['vtx_dBVerr']<0.0025)
         for v in phys:
           phys[v] = np.array(phys[v][evt_select])
         if len(phys['evt'])==0:
@@ -261,13 +308,13 @@ def calcMLscore(ML_inputs_tk, ML_inputs_vtx, model_path='./', model_name="test_m
             while evt<len(ML_input_tk):
                 if evt+batch_size <= len(ML_input_tk):
                     batch_input_tk = ML_input_tk[evt:evt+batch_size]
-                    batch_input_vtx = ML_input_vtx[evt:evt+batch_size]
+                    #batch_input_vtx = ML_input_vtx[evt:evt+batch_size]
                 else:
                     batch_input_tk = ML_input_tk[evt:]
-                    batch_input_vtx = ML_input_vtx[evt:]
+                    #batch_input_vtx = ML_input_vtx[evt:]
                 evt += batch_size
                 Rr, Rs, Ra = getRmatrix(len(batch_input_tk))
-                ML_output = sess.run(['INscore:0'],feed_dict={'O:0':batch_input_tk,'Rr:0':Rr,'Rs:0':Rs,'Ra:0':Ra,'vtx:0':batch_input_vtx})
+                ML_output = sess.run(['INscore:0'],feed_dict={'O:0':batch_input_tk,'Rr:0':Rr,'Rs:0':Rs,'Ra:0':Ra})
                 outputscore.append(ML_output[0])
             outputscore = np.concatenate(outputscore)
             MLscores.append(outputscore)
@@ -301,21 +348,13 @@ def normalizedata(data):
   if len(data.shape)==3: # track information
       n_features_data = Ds
       normalize_factors = [
-        [2.824218784833551, 1.5800781618234907, 19.62499955814752],
-        [-0.0034791100282730485, -2.0726340132570207, 2.0676901248054667],
-        [-0.05938091789171784, -2.816202405480905, 2.8012547293419745],
-        [-1.1822566514803765e-05, -0.021601227762639737, 0.02165756641342025],
-        [-0.0037247247384504484, -8.004908446274536, 8.116710582719518],
-        [-0.05485231134043566, -5.719750901809431, 5.558150619699294],
-        [-6.858657703447766, -1493.8802045980676, 1365.9591350701883],
-
-       # [2.9921873872923204, 1.611328077679927, 21.71874959314235],
-       # [-0.002197332689525855, -2.048280274828707, 2.042786889451172],
-       # [-0.052151510542675854, -2.817853695217341, 2.8010604232716134],
-       # [-1.732961020127676e-05, -0.028163788829690593, 0.02851495531392332],
-       # [-0.005698038153573307, -11.426820067878031, 11.702616042874618],
-       # [-0.14710353453291264, -5.731804870816317, 5.285190151497996],
-       # [-21.600074211563726, -1585.8880161098537, 1330.0520110241957],
+        [3.0058594415751156, 1.6191405668484613, 22.183593957456264],
+        [-0.0034791098279665987, -2.0468154272796326, 2.042786889451172],
+        [-0.0543001882707337, -2.815811409048992, 2.8012590283634102],
+        [-1.235642339086932e-05, -0.025959662283924146, 0.026071622642012487],
+        [-0.003970001134868386, -10.319389411895663, 10.576279478554758],
+        [-0.14118215968696157, -5.734189675229984, 5.397960310096741],
+        [-18.854126507212367, -1587.1630172014382, 1357.0385916506366],
       ]
       for i in range(n_features_data):
           #l = np.sort(np.reshape(data[:,i,:],[1,-1])[0])
@@ -329,12 +368,9 @@ def normalizedata(data):
           data[:,i,:][data[:,i,:]!=0] = (data[:,i,:][data[:,i,:]!=0]-median)*(2.0/(l_max-l_min))
   elif len(data.shape)==2:
       normalize_factors = [
-        [4.0, 3.0, 10.0],
-        [0.21245913207530975, 0.016612542793154716, 1.3410828113555908],
-        [0.005510474089533091, 0.0008672495023347437, 0.009639167226850986],
-        #[4.0, 3.0, 12.0],
-        #[0.034128569066524506, 0.012649158015847206, 0.6244454383850098],
-        #[0.0013990550069138408, 0.0007133422768674791, 0.002221108181402087],
+        [4.0, 3.0, 12.0],
+        [0.032811831682920456, 0.011056187562644482, 0.5899604558944702],
+        [0.001431089243851602, 0.0007026850944384933, 0.0023525492288172245],
       ]
       for i in range(Dv):
         #l = np.sort(np.reshape(data[:,i],[1,-1])[0])
@@ -367,7 +403,10 @@ def makehist(data,weight,var):
     assert(var in plot_vars_titles)
     label = plot_vars_titles[var]
     setting = plot_setting[var]
-    h = ROOT.TH1F(label[0],";".join(label),setting['bins'],setting['range'][0],setting['range'][1])
+    if 'binlist' in setting:
+      h = ROOT.TH1F(label[0],";".join(label), len(setting['binlist'])-1, setting['binlist'])
+    else:
+      h = ROOT.TH1F(label[0],";".join(label),setting['bins'],setting['range'][0],setting['range'][1])
     for i in range(len(data)):
       h.Fill(data[i],weight[i])
     return h
@@ -396,7 +435,11 @@ def plotcategory(f,dirname,vars_name,data,weight):
       hist = makehist(data[v], weight[v], v)
       hist.Write()
     hist2d = make2dhist(data['vtx_dBV'],data['vtx_dBVerr'],weight['vtx_dBV'],'vtx_dBV','vtx_dBVerr')
+    ntk_ML = make2dhist(data['vtx_ntk'],data['MLScore'],weight['vtx_ntk'],'vtx_ntk','MLScore')
+    dbv_ML = make2dhist(data['vtx_dBV'],data['MLScore'],weight['vtx_dBV'],'vtx_dBV','MLScore')
     hist2d.Write()
+    ntk_ML.Write()
+    dbv_ML.Write()
     return
 
 def MLoutput(signals, sig_fns, backgrounds, bkg_fns):
@@ -510,7 +553,8 @@ def getPlotData(phys_vars, vars_name, idx, fns):
 
 def makeplotfile(fns,newfn,isSignal):
     fnew = ROOT.TFile(newfn+".root","RECREATE")
-    MLscore_threshold = 0.2
+    MLscore_threshold_high = 0.64
+    MLscore_threshold_low = 0.4
     ML_inputs_tk, ML_inputs_vtx, phys_vars = GetData(fns)
     assert(len(fns)==len(ML_inputs_tk))
     assert(len(fns)==len(ML_inputs_vtx))
@@ -521,16 +565,19 @@ def makeplotfile(fns,newfn,isSignal):
     idx_highML = []
     idx_lowML = []
     idx_all = []
+    idx_midML = []
     ntk_idx = {
       '3trk':[],
       '4trk':[],
       '5trk':[]
     } # 3-trk, 4-trk, >=5-trk
     for out in ML_outputs:
-        highML = out>MLscore_threshold
+        highML = out>MLscore_threshold_high
         idx_highML.append(np.reshape(highML, len(highML)))
-        lowML = out<=MLscore_threshold
+        lowML = out<=MLscore_threshold_low
         idx_lowML.append(np.reshape(lowML, len(lowML)))
+        midML = (out>MLscore_threshold_low)&(out<=MLscore_threshold_high)
+        idx_midML.append(np.reshape(midML, len(midML)))
         allML = np.array([True]*len(lowML))
         idx_all.append(allML)
 
@@ -544,33 +591,45 @@ def makeplotfile(fns,newfn,isSignal):
         ntk_idx['5trk'].append(np.reshape(ntk_5, len(ntk_5)))
 
     vars_name = [
+      #'met_pt','metnomu_pt','nsv','MLScore',
       'met_pt','nsv','MLScore',
       'jet_pt', 'jet_eta', 'jet_phi',
       'vtx_ntk','vtx_dBV','vtx_dBVerr', 'vtx_mass_track', 'vtx_mass_jet', 'vtx_mass_trackjet',
       'tk_pt', 'tk_eta', 'tk_phi', 'tk_dxybs', 'tk_dxybs_sig', 'tk_dxybs_err', 'tk_dz', 'tk_dz_sig', 'tk_dz_err',
       'vtx_tk_pt','vtx_tk_eta','vtx_tk_phi', 'vtx_tk_dxy', 'vtx_tk_dxy_err', 'vtx_tk_nsigmadxy', 'vtx_tk_dz', 'vtx_tk_dz_err', 'vtx_tk_nsigmadz',
                 ]
+    if METNoMu_avai:
+      vars_name.append('metnomu_pt')
+    if B_info:
+      vars_name += ['n_gen_bquarks', 'nbtag_jet', 'jet_ntrack', 'jet_btag', 'jet_flavor', 'gen_bquarks_pt', 'gen_bquarks_eta', 'gen_bquarks_phi']
     data_highML, weight_highML = getPlotData(phys_vars, vars_name, idx_highML, fns)
     data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, idx_lowML, fns)
+    data_midML, weight_midML = getPlotData(phys_vars, vars_name, idx_midML, fns)
     data_all, weight_all = getPlotData(phys_vars, vars_name, idx_all, fns)
+
     plotcategory(fnew,"highML_inclusive",vars_name,data_highML,weight_highML)
     plotcategory(fnew,"lowML_inclusive",vars_name,data_lowML,weight_lowML)
+    plotcategory(fnew,"midML_inclusive",vars_name,data_midML,weight_midML)
     plotcategory(fnew,"allML_inclusive",vars_name,data_all,weight_all)
 
     for intk in ntk_idx:
       pick_idx_incl = []
       pick_idx_high = []
       pick_idx_low = []
+      pick_idx_mid = []
       for iidx in range(len(idx_highML)):
         pick_idx_incl.append(ntk_idx[intk][iidx])
         pick_idx_high.append(idx_highML[iidx] & ntk_idx[intk][iidx])
         pick_idx_low.append(idx_lowML[iidx] & ntk_idx[intk][iidx])
+        pick_idx_mid.append(idx_midML[iidx] & ntk_idx[intk][iidx])
       data_ntk_incl, weight_ntk_incl = getPlotData(phys_vars, vars_name, pick_idx_incl, fns)
       data_highML, weight_highML = getPlotData(phys_vars, vars_name, pick_idx_high, fns)
       data_lowML, weight_lowML = getPlotData(phys_vars, vars_name, pick_idx_low, fns)
+      data_midML, weight_midML = getPlotData(phys_vars, vars_name, pick_idx_mid, fns)
       plotcategory(fnew,"inclusive_"+intk,vars_name,data_ntk_incl,weight_ntk_incl)
       plotcategory(fnew,"highML_"+intk,vars_name,data_highML,weight_highML)
       plotcategory(fnew,"lowML_"+intk,vars_name,data_lowML,weight_lowML)
+      plotcategory(fnew,"midML_"+intk,vars_name,data_midML,weight_midML)
 
     fnew.Close()
 
@@ -594,10 +653,11 @@ def makeplotfile(fns,newfn,isSignal):
         for iregion in range(len(cut_region)):
             w_region = w[cut_region[iregion]]
             nevt_region = np.sum(w_region)*weights[i]
+            nevt_raw = len(w_region)
             nevt_variance_region = nevt_region*weights[i]
             total_sum[iregion] += nevt_region
             total_var[iregion] += nevt_variance_region
-            print("sample {} in region {} : {} +- {}".format(fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region)))
+            print("sample {} in region {} : {} +- {} raw: {}".format(fns[i],region_names[iregion],nevt_region,np.sqrt(nevt_variance_region),nevt_raw))
             
     if not isSignal:
       print("Summing together: ")
@@ -608,15 +668,14 @@ def makeplotfile(fns,newfn,isSignal):
 
 def main():
     fns = [
-      'qcdht0200_2017',
+      #'qcdht0200_2017',
       'qcdht0300_2017',
       'qcdht0500_2017',
       'qcdht0700_2017', 
       'qcdht1000_2017', 
       'qcdht1500_2017', 
       'qcdht2000_2017', 
-      'wjetstolnu_2017', 
-      'wjetstolnuext_2017', 
+      'wjetstolnusum_2017',
       'zjetstonunuht0100_2017', 
       'zjetstonunuht0200_2017', 
       'zjetstonunuht0400_2017', 
@@ -625,9 +684,16 @@ def main():
       'zjetstonunuht1200_2017', 
       'zjetstonunuht2500_2017', 
       'ttbar_2017',
+      #'ttbarht0600_2017',
+      #'ttbarht0800_2017',
+      #'ttbarht1200_2017',
+      #'ttbarht2500_2017',
     ]
     if doBackground:
-      makeplotfile(fns,"background_lowMET",False)
+      #makeplotfile(fns,"background_METtrigger",False)
+      #makeplotfile(fns,"background_lowMET",False)
+      makeplotfile(fns,"background_lowMET_MLrange_BInfo",False)
+      #makeplotfile(fns,"ttbarHT_highMET",False)
 
     sig_fns = ['mfv_splitSUSY_tau000000000um_M2000_1800_2017',
                'mfv_splitSUSY_tau000000000um_M2400_2300_2017',
@@ -644,7 +710,9 @@ def main():
               ]
     if doSignal:
       for sig_fn in sig_fns:
-        makeplotfile([sig_fn],sig_fn+"lowMET",True)
+        #makeplotfile([sig_fn],sig_fn+"_METtrigger",True)
+        makeplotfile([sig_fn],sig_fn+"_lowMET_MLrange_BInfo",True)
+        #makeplotfile([sig_fn],sig_fn+"_highMET",True)
 
 
 # In[6]:
